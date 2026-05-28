@@ -1,0 +1,29 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+#*
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Environment variables (CRITICAL — never push your MongoDB URI!)
+.env
+.env.local
+
+# Virtual environment
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Database / logs
+*.log
+*.db
+*.sqlite3
+
+# Render / build files
+__pycache__/
+.DS_Store

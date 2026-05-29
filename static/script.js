@@ -1,375 +1,389 @@
-// script.js
-// API Configuration
-const API_BASE = 'https://jsonbinbro.onrender.com/api';
-const BIN_ID = '6a198bf1966f596be2a747e2';
+const API_BASE = '/api';
+let userId = null;
+let apiKey = null;
+let allBins = [];
 
-// DOM elements
-let currentUserId = null;
-let currentApiKey = null;
-let currentEditIndex = null;
-let allClassmates = [];
-
-// DOM elements
-const authSection = document.getElementById('auth-section');
-const appContent = document.getElementById('app-content');
-const authForm = document.getElementById('auth-form');
-const userIdInput = document.getElementById('user-id-input');
-const apiKeyInput = document.getElementById('api-key-input');
-const form = document.getElementById('classmate-form');
-const firstNameInput = document.getElementById('first-name');
-const lastNameInput = document.getElementById('last-name');
-const professionInput = document.getElementById('profession');
-const telephoneInput = document.getElementById('telephone');
-const ageInput = document.getElementById('age');
-const saveBtn = document.getElementById('save-btn');
-const cancelBtn = document.getElementById('cancel-btn');
-const tableBody = document.getElementById('table-body');
-const searchInput = document.getElementById('search-input');
-const refreshBtn = document.getElementById('refresh-btn');
-const recordCountSpan = document.getElementById('record-count');
-const formTitle = document.getElementById('form-title');
-
-// Helper: Fetch data from JSONBinBro
-async function fetchClassmates() {
-    if (!currentUserId || !currentApiKey) return [];
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Get user data from localStorage
+    userId = localStorage.getItem('userId');
+    apiKey = localStorage.getItem('apiKey');
+    const username = localStorage.getItem('username');
+    const userRole = localStorage.getItem('role');
+    const requestCount = localStorage.getItem('requestCount');
+    const requestLimit = localStorage.getItem('requestLimit');
     
-    try {
-        const response = await fetch(`${API_BASE}/bins/${BIN_ID}?api_key=${currentApiKey}`);
-        
-        if (response.status === 401) {
-            throw new Error('Invalid or expired API key. Please re-authenticate.');
-        }
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        // The data structure: { data: { allusers: [...] } }
-        // Also check for direct data property
-        let classmates = [];
-        if (result.data && result.data.allusers) {
-            classmates = result.data.allusers;
-        } else if (result.data && Array.isArray(result.data)) {
-            classmates = result.data;
-        } else if (Array.isArray(result)) {
-            classmates = result;
-        } else if (result.allusers) {
-            classmates = result.allusers;
-        }
-        
-        allClassmates = Array.isArray(classmates) ? classmates : [];
-        
-        renderTable();
-        updateRecordCount();
-        return allClassmates;
-    } catch (error) {
-        console.error('Fetch error:', error);
-        tableBody.innerHTML = `<tr><td colspan="6" class="empty-message">⚠️ Failed to load data. ${error.message}<br>Please check your connection and API credentials.</td></tr>`;
-        return [];
-    }
-}
-
-// Helper: Update entire BIN on server
-async function updateBin(dataArray) {
-    if (!currentUserId || !currentApiKey) return false;
-    
-    try {
-        // The backend expects the data wrapped in a 'data' property for PUT requests
-        const payload = { 
-            data: { allusers: dataArray },
-            name: "My Classmates",
-            is_private: false
-        };
-        
-        const response = await fetch(`${API_BASE}/bins/${BIN_ID}?api_key=${currentApiKey}`, {
-            method: 'PUT',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-        
-        if (response.status === 401) {
-            throw new Error('Invalid or expired API key. Please re-authenticate.');
-        }
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Update failed: ${response.status} - ${errorText}`);
-        }
-        
-        const result = await response.json();
-        
-        // Update local data
-        if (result.data && result.data.allusers) {
-            allClassmates = result.data.allusers;
-        } else if (result.data && Array.isArray(result.data)) {
-            allClassmates = result.data;
-        } else {
-            allClassmates = dataArray;
-        }
-        
-        renderTable();
-        updateRecordCount();
-        resetForm();
-        
-        return true;
-    } catch (error) {
-        console.error('Update error:', error);
-        alert(`Error saving data to server: ${error.message}\nPlease try again.`);
-        return false;
-    }
-}
-
-// Render table based on search filter
-function renderTable() {
-    const searchTerm = searchInput.value.trim().toLowerCase();
-    let filteredClassmates = [...allClassmates];
-    
-    if (searchTerm) {
-        filteredClassmates = allClassmates.filter(person => 
-            (person.fname?.toLowerCase() || '').includes(searchTerm) ||
-            (person.lname?.toLowerCase() || '').includes(searchTerm) ||
-            (person.profession?.toLowerCase() || '').includes(searchTerm) ||
-            (person.telephone || '').includes(searchTerm)
-        );
-    }
-    
-    if (filteredClassmates.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="6" class="empty-message">👥 No classmates found. Add one above!</td></tr>`;
-        return;
-    }
-    
-    let html = '';
-    filteredClassmates.forEach((person, idx) => {
-        // Find the actual index in allClassmates for edit/delete operations
-        const actualIndex = allClassmates.findIndex(p => 
-            p.fname === person.fname && 
-            p.lname === person.lname && 
-            p.telephone === person.telephone
-        );
-        
-        html += `
-            <tr>
-                <td>${escapeHtml(person.fname || '')}</td>
-                <td>${escapeHtml(person.lname || '')}</td>
-                <td>${escapeHtml(person.profession || '')}</td>
-                <td>${escapeHtml(person.telephone || '')}</td>
-                <td>${person.age || ''}</td>
-                <td class="action-cell">
-                    <button class="edit-btn" data-index="${actualIndex !== -1 ? actualIndex : idx}">✏️ Edit</button>
-                    <button class="delete-btn" data-index="${actualIndex !== -1 ? actualIndex : idx}">🗑️ Delete</button>
-                </td>
-            </tr>
-        `;
-    });
-    tableBody.innerHTML = html;
-    
-    // Attach event listeners to edit/delete buttons
-    document.querySelectorAll('.edit-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const idx = parseInt(btn.getAttribute('data-index'));
-            if (!isNaN(idx)) editClassmate(idx);
-        });
-    });
-    
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const idx = parseInt(btn.getAttribute('data-index'));
-            if (!isNaN(idx) && confirm('Delete this classmate permanently?')) {
-                await deleteClassmate(idx);
-            }
-        });
-    });
-}
-
-// Escape HTML to prevent injection
-function escapeHtml(str) {
-    if (!str) return '';
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function updateRecordCount() {
-    const total = allClassmates.length;
-    recordCountSpan.textContent = `📋 Total: ${total} classmate${total !== 1 ? 's' : ''}`;
-}
-
-// Reset form after save/cancel
-function resetForm() {
-    form.reset();
-    currentEditIndex = null;
-    formTitle.textContent = 'Add New Classmate';
-    saveBtn.textContent = '💾 Save Classmate';
-    cancelBtn.style.display = 'inline-flex';
-    if (firstNameInput) firstNameInput.focus();
-}
-
-// Fill form for editing
-function editClassmate(index) {
-    if (index < 0 || index >= allClassmates.length) return;
-    
-    const classmate = allClassmates[index];
-    firstNameInput.value = classmate.fname || '';
-    lastNameInput.value = classmate.lname || '';
-    professionInput.value = classmate.profession || '';
-    telephoneInput.value = classmate.telephone || '';
-    ageInput.value = classmate.age || '';
-    
-    currentEditIndex = index;
-    formTitle.textContent = '✏️ Edit Classmate';
-    saveBtn.textContent = '🔄 Update Classmate';
-    cancelBtn.style.display = 'inline-flex';
-    
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// Delete classmate
-async function deleteClassmate(index) {
-    if (index < 0 || index >= allClassmates.length) return;
-    
-    const newClassmates = [...allClassmates];
-    newClassmates.splice(index, 1);
-    const success = await updateBin(newClassmates);
-    
-    if (success && currentEditIndex !== null) {
-        if (currentEditIndex === index || index < currentEditIndex) {
-            resetForm();
-        } else if (currentEditIndex > index) {
-            currentEditIndex--;
-        }
-    }
-}
-
-// Save or update classmate
-async function saveClassmate(event) {
-    event.preventDefault();
-    
-    // Validation
-    const fname = firstNameInput.value.trim();
-    const lname = lastNameInput.value.trim();
-    const profession = professionInput.value.trim();
-    const telephone = telephoneInput.value.trim();
-    const age = parseInt(ageInput.value);
-    
-    if (!fname || !lname || !profession || !telephone) {
-        alert('Please fill all fields: First Name, Last Name, Profession, and Telephone.');
-        return;
-    }
-    
-    if (isNaN(age) || age < 1 || age > 120) {
-        alert('Please enter a valid age between 1 and 120.');
-        return;
-    }
-    
-    const newClassmate = {
-        fname: fname,
-        lname: lname,
-        profession: profession,
-        telephone: telephone,
-        age: age
-    };
-    
-    let updatedList;
-    if (currentEditIndex !== null) {
-        updatedList = [...allClassmates];
-        updatedList[currentEditIndex] = newClassmate;
-    } else {
-        updatedList = [...allClassmates, newClassmate];
-    }
-    
-    const success = await updateBin(updatedList);
-    if (success) {
-        resetForm();
-    }
-}
-
-// Cancel editing
-function cancelEdit() {
-    resetForm();
-}
-
-// Refresh data from server
-async function refreshData() {
-    if (!currentUserId || !currentApiKey) {
-        alert('Please authenticate first');
-        return;
-    }
-    tableBody.innerHTML = `<table><td colspan="6" class="loading-message">🔄 Refreshing...</td></tr>`;
-    await fetchClassmates();
-}
-
-// Authentication handler
-async function handleAuth(event) {
-    event.preventDefault();
-    const userId = userIdInput.value.trim();
-    const apiKey = apiKeyInput.value.trim();
-    
+    // Check if user is logged in
     if (!userId || !apiKey) {
-        alert('Please enter both User ID and API Key');
+        window.location.href = '/login';
         return;
     }
     
-    // Test the credentials by trying to fetch the bin
-    currentUserId = userId;
-    currentApiKey = apiKey;
-    tableBody.innerHTML = `<tr><td colspan="6" class="loading-message">🔐 Authenticating and loading data...</td></tr>`;
+    // Display user info
+    document.getElementById('usernameDisplay').textContent = username;
+    document.getElementById('userRole').textContent = userRole === 'admin' ? 'Admin' : 'User';
+    document.getElementById('userRole').style.background = userRole === 'admin' ? '#dc3545' : '#28a745';
+    document.getElementById('userRole').style.color = 'white';
+    document.getElementById('requestStats').innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${requestLimit}`;
+    
+    // Setup logout button
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.onclick = logout;
+    }
+    
+    // Load bins
+    loadAllBins();
+    setupCreateForm();
+    setupModal();
+});
+
+// Search function
+function searchBins() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = allBins.filter(bin => 
+        (bin.name && bin.name.toLowerCase().includes(searchTerm)) ||
+        bin.id.toLowerCase().includes(searchTerm)
+    );
+    displayBins(filtered);
+}
+
+// Logout function
+function logout() {
+    localStorage.clear();
+    window.location.href = '/login';
+}
+
+async function loadAllBins() {
+    try {
+        const response = await fetch(`${API_BASE}/bins?user_id=${userId}&api_key=${apiKey}`);
+        if (response.ok) {
+            allBins = await response.json();
+            // Ensure bins is an array
+            if (Array.isArray(allBins)) {
+                displayBins(allBins);
+                updateStats(allBins);
+            } else {
+                displayBins([]);
+                updateStats([]);
+            }
+        } else if (response.status === 401) {
+            console.error('Session expired');
+            showError('Session expired. Please login again.');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+        } else {
+            const error = await response.json();
+            console.error('Failed to load bins:', error);
+            showError('Failed to load bins: ' + (error.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error loading bins:', error);
+        showError('Failed to load bins. Please check your connection.');
+    }
+}
+
+function updateStats(bins) {
+    const totalBins = bins.length;
+    const publicBins = bins.filter(b => !b.is_private).length;
+    const privateBins = bins.filter(b => b.is_private).length;
+    
+    const totalBinsEl = document.getElementById('totalBins');
+    const publicBinsEl = document.getElementById('publicBins');
+    const privateBinsEl = document.getElementById('privateBins');
+    
+    if (totalBinsEl) totalBinsEl.textContent = totalBins;
+    if (publicBinsEl) publicBinsEl.textContent = publicBins;
+    if (privateBinsEl) privateBinsEl.textContent = privateBins;
+}
+
+function displayBins(bins) {
+    const binsList = document.getElementById('binsList');
+    const baseUrl = window.location.origin;
+    
+    if (!binsList) return;
+    
+    if (!bins || bins.length === 0) {
+        binsList.innerHTML = '<div class="loading">No bins found. Create your first bin!</div>';
+        return;
+    }
+    
+    binsList.innerHTML = bins.map((bin) => `
+        <div class="bin-card">
+            <div class="${bin.is_private ? 'private-badge' : 'public-badge'}">
+                ${bin.is_private ? '<i class="fas fa-lock"></i> Private' : '<i class="fas fa-unlock"></i> Public'}
+            </div>
+            <h3><i class="fas fa-${bin.is_private ? 'lock' : 'folder-open'}"></i> ${escapeHtml(bin.name || 'Unnamed Bin')}</h3>
+            <div class="bin-data">
+                <pre>${JSON.stringify(bin.data, null, 2).substring(0, 300)}${JSON.stringify(bin.data, null, 2).length > 300 ? '...' : ''}</pre>
+            </div>
+            <div class="bin-meta">
+                <span><i class="far fa-calendar-alt"></i> ${new Date(bin.created_at).toLocaleDateString()}</span>
+                <span><i class="fas fa-eye"></i> ${bin.access_count} views</span>
+            </div>
+            <div class="access-links">
+                <label><i class="fas fa-link"></i> Access Links:</label>
+                <div class="link-container">
+                    <input type="text" value="${baseUrl}/api/bins/${bin.id}?api_key=${apiKey}" readonly>
+                    <button class="btn btn-sm btn-info" onclick="copyToClipboard('${baseUrl}/api/bins/${bin.id}?api_key=${apiKey}', 'API Link')">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <div class="link-container">
+                    <input type="text" value="Bin ID: ${bin.id}" readonly>
+                    <button class="btn btn-sm btn-info" onclick="copyToClipboard('${bin.id}', 'Bin ID')">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="bin-actions">
+                <button onclick="viewBin('${bin.id}')" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-eye"></i> View
+                </button>
+                <button onclick="editBin('${bin.id}')" class="btn btn-warning btn-sm">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button onclick="deleteBin('${bin.id}')" class="btn btn-danger btn-sm">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function setupCreateForm() {
+    const form = document.getElementById('createForm');
+    if (!form) return;
+    
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const name = document.getElementById('binName').value;
+        const dataText = document.getElementById('jsonData').value;
+        const isPrivate = document.getElementById('isPrivate').checked;
+        
+        try {
+            const data = JSON.parse(dataText);
+            const response = await fetch(`${API_BASE}/bins?user_id=${userId}&api_key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, data, is_private: isPrivate })
+            });
+            
+            if (response.ok) {
+                const bin = await response.json();
+                showSuccess(`Bin created successfully! ID: ${bin.id}`);
+                document.getElementById('createForm').reset();
+                document.getElementById('jsonData').value = '{"message": "Hello World!"}';
+                loadAllBins();
+                
+                // Update request count in localStorage
+                const newRequestCount = parseInt(localStorage.getItem('requestCount') || '0') + 1;
+                localStorage.setItem('requestCount', newRequestCount);
+                const requestStatsEl = document.getElementById('requestStats');
+                if (requestStatsEl) {
+                    const requestLimit = localStorage.getItem('requestLimit') || '300';
+                    requestStatsEl.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${newRequestCount}/${requestLimit}`;
+                }
+            } else {
+                const error = await response.json();
+                showError(error.detail || 'Failed to create bin');
+            }
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                showError('Invalid JSON format. Please check your syntax.');
+            } else {
+                showError(error.message || 'Failed to create bin');
+            }
+        }
+    });
+}
+
+async function viewBin(id) {
+    try {
+        const response = await fetch(`${API_BASE}/bins/${id}?api_key=${apiKey}`);
+        if (response.ok) {
+            const bin = await response.json();
+            const baseUrl = window.location.origin;
+            showModal('View Bin', `
+                <div class="form-group">
+                    <label>Bin ID:</label>
+                    <div class="link-container">
+                        <input type="text" value="${bin.id}" readonly style="flex:1;">
+                        <button class="btn btn-sm btn-info" onclick="copyToClipboard('${bin.id}', 'Bin ID')">Copy</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Name:</label>
+                    <input type="text" value="${escapeHtml(bin.name || 'Unnamed')}" readonly style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div class="form-group">
+                    <label>API Endpoint:</label>
+                    <div class="link-container">
+                        <input type="text" value="${baseUrl}/api/bins/${bin.id}?api_key=${apiKey}" readonly style="flex:1;">
+                        <button class="btn btn-sm btn-info" onclick="copyToClipboard('${baseUrl}/api/bins/${bin.id}?api_key=${apiKey}', 'API Link')">Copy</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Data Type:</label>
+                    <input type="text" value="${Array.isArray(bin.data) ? 'Array' : typeof bin.data}" readonly style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div class="form-group">
+                    <label>Data:</label>
+                    <pre style="background:#f8f9fa;padding:10px;border-radius:5px;overflow-x:auto;max-height:400px;">${JSON.stringify(bin.data, null, 2)}</pre>
+                </div>
+                <div class="form-group">
+                    <label>Created:</label>
+                    <input type="text" value="${new Date(bin.created_at).toLocaleString()}" readonly style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+                <div class="form-group">
+                    <label>Views:</label>
+                    <input type="text" value="${bin.access_count}" readonly style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                </div>
+            `);
+        } else {
+            showError('Failed to load bin');
+        }
+    } catch (error) {
+        showError('Error accessing bin');
+    }
+}
+
+async function editBin(id) {
+    try {
+        const response = await fetch(`${API_BASE}/bins/${id}?api_key=${apiKey}`);
+        if (!response.ok) throw new Error('Failed to fetch bin');
+        
+        const bin = await response.json();
+        
+        showModal('Edit Bin', `
+            <div class="form-group">
+                <label>Name:</label>
+                <input type="text" id="editName" value="${escapeHtml(bin.name || '')}" style="width:100%;padding:8px;border:2px solid #e0e0e0;border-radius:5px;">
+            </div>
+            <div class="form-group">
+                <label>JSON Data:</label>
+                <textarea id="editData" rows="10" style="width:100%;font-family:monospace;padding:8px;border:2px solid #e0e0e0;border-radius:5px;">${JSON.stringify(bin.data, null, 2)}</textarea>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="editPrivate" ${bin.is_private ? 'checked' : ''}> Private Bin
+                </label>
+            </div>
+            <button onclick="submitEdit('${id}')" class="btn btn-primary">Save Changes</button>
+        `);
+    } catch (error) {
+        showError('Failed to load bin for editing');
+    }
+}
+
+async function submitEdit(id) {
+    const name = document.getElementById('editName').value;
+    const dataText = document.getElementById('editData').value;
+    const isPrivate = document.getElementById('editPrivate').checked;
     
     try {
-        const response = await fetch(`${API_BASE}/bins/${BIN_ID}?api_key=${currentApiKey}`);
+        const data = JSON.parse(dataText);
+        const response = await fetch(`${API_BASE}/bins/${id}?api_key=${apiKey}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, data, is_private: isPrivate })
+        });
         
-        if (response.status === 401 || response.status === 403) {
-            throw new Error('Invalid User ID or API Key');
+        if (response.ok) {
+            showSuccess('Bin updated successfully');
+            closeModal();
+            loadAllBins();
+        } else {
+            const error = await response.json();
+            showError(error.detail || 'Failed to update bin');
         }
-        
-        if (!response.ok) {
-            throw new Error(`Authentication failed: ${response.status}`);
-        }
-        
-        // Store credentials in localStorage for convenience
-        localStorage.setItem('jsonbinbro_user_id', currentUserId);
-        localStorage.setItem('jsonbinbro_api_key', currentApiKey);
-        
-        // Hide auth section and show main app
-        authSection.style.display = 'none';
-        appContent.style.display = 'block';
-        
-        // Load the data
-        await fetchClassmates();
-        
     } catch (error) {
-        console.error('Auth error:', error);
-        alert(`Authentication failed: ${error.message}\nPlease check your User ID and API Key and try again.`);
-        currentUserId = null;
-        currentApiKey = null;
-        tableBody.innerHTML = `<td><td colspan="6" class="empty-message">❌ Authentication failed. Please check your credentials.</td></tr>`;
+        showError('Invalid JSON format');
     }
 }
 
-// Check for saved credentials on load
-function checkSavedCredentials() {
-    const savedUserId = localStorage.getItem('jsonbinbro_user_id');
-    const savedApiKey = localStorage.getItem('jsonbinbro_api_key');
-    if (savedUserId && savedApiKey) {
-        userIdInput.value = savedUserId;
-        apiKeyInput.value = savedApiKey;
-        // Auto-authenticate
-        handleAuth(new Event('submit'));
+async function deleteBin(id) {
+    if (!confirm('Are you sure you want to delete this bin? This action cannot be undone.')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/bins/${id}?api_key=${apiKey}`, { 
+            method: 'DELETE' 
+        });
+        
+        if (response.ok) {
+            showSuccess('Bin deleted successfully');
+            loadAllBins();
+        } else {
+            showError('Failed to delete bin');
+        }
+    } catch (error) {
+        showError('Error deleting bin');
     }
 }
 
-// Event listeners
-authForm.addEventListener('submit', handleAuth);
-form.addEventListener('submit', saveClassmate);
-cancelBtn.addEventListener('click', cancelEdit);
-refreshBtn.addEventListener('click', refreshData);
-searchInput.addEventListener('input', () => renderTable());
+// Modal functions
+let modal = null;
 
-// Check for saved credentials on page load
-checkSavedCredentials();
+function setupModal() {
+    modal = document.getElementById('modal');
+    if (modal) {
+        const closeBtn = document.getElementsByClassName('close')[0];
+        if (closeBtn) {
+            closeBtn.onclick = () => modal.style.display = 'none';
+        }
+        window.onclick = (event) => {
+            if (event.target === modal) modal.style.display = 'none';
+        };
+    }
+}
+
+function showModal(title, content) {
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    if (modalTitle) modalTitle.innerHTML = title;
+    if (modalBody) modalBody.innerHTML = content;
+    if (modal) modal.style.display = 'block';
+}
+
+function closeModal() {
+    if (modal) modal.style.display = 'none';
+}
+
+function copyToClipboard(text, field) {
+    navigator.clipboard.writeText(text);
+    showSuccess(`${field} copied to clipboard!`);
+}
+
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error';
+    errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+    const container = document.querySelector('.container');
+    if (container) {
+        container.insertBefore(errorDiv, container.firstChild);
+        setTimeout(() => errorDiv.remove(), 3000);
+    } else {
+        alert(message);
+    }
+}
+
+function showSuccess(message) {
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success';
+    successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+    const container = document.querySelector('.container');
+    if (container) {
+        container.insertBefore(successDiv, container.firstChild);
+        setTimeout(() => successDiv.remove(), 3000);
+    } else {
+        alert(message);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}

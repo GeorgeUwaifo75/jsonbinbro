@@ -1,118 +1,105 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>My Classmates - Class Roster Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSONBinBro - JSON Storage Platform</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container">
+    <div class="container">
         <header>
-            <h1>📚 My Classmates</h1>
-            <p>Manage your class roster with ease</p>
+            <h1><i class="fas fa-database"></i> JSONBinBro</h1>
+            <p class="tagline" style="font-size: 1.2rem; margin-top: -10px; margin-bottom: 20px;">We make storage and retrieval even fun! 🚀</p>
+            <p>Simple REST API for JSON storage - Create, Read, Update, Delete</p>
         </header>
 
-        <main>
-            <!-- Authentication Section -->
-            <section class="form-card" id="auth-section">
-                <h2>🔐 Authentication Required</h2>
-                <form id="auth-form">
-                    <div class="form-row">
-                        <div class="input-group">
-                            <label for="api-key-input">API Key *</label>
-                            <input type="password" id="api-key-input" placeholder="Enter your JSONBinBro API Key" required>
-                        </div>
-                        <div class="input-group action-buttons">
-                            <button type="submit" class="btn primary-btn">🔑 Connect</button>
-                        </div>
-                    </div>
-                </form>
-                <div class="info-message">
-                    <small>Don't have an API key? <a href="https://jsonbinbro.onrender.com/register" target="_blank">Register here</a></small>
-                </div>
-            </section>
-
-            <!-- Main App Section (hidden until authenticated) -->
-            <div id="app-content" style="display: none;">
-                <!-- Form Section for Add/Edit -->
-                <section class="form-card">
-                    <h2 id="form-title">Add New Classmate</h2>
-                    <form id="classmate-form">
-                        <div class="form-row">
-                            <div class="input-group">
-                                <label for="first-name">First Name *</label>
-                                <input type="text" id="first-name" placeholder="e.g., George" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="last-name">Last Name *</label>
-                                <input type="text" id="last-name" placeholder="e.g., Uwaifo" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="input-group">
-                                <label for="profession">Profession *</label>
-                                <input type="text" id="profession" placeholder="e.g., Computer Scientist" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="telephone">Telephone *</label>
-                                <input type="tel" id="telephone" placeholder="e.g., 09038197586" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="input-group">
-                                <label for="age">Age *</label>
-                                <input type="number" id="age" placeholder="e.g., 25" min="1" max="120" required>
-                            </div>
-                            <div class="input-group action-buttons">
-                                <button type="submit" id="save-btn" class="btn primary-btn">💾 Save Classmate</button>
-                                <button type="button" id="cancel-btn" class="btn secondary-btn">↩️ Cancel</button>
-                            </div>
-                        </div>
-                    </form>
-                </section>
-
-                <!-- List Section with Search & Table -->
-                <section class="list-card">
-                    <div class="list-header">
-                        <h2>Classmates Roster</h2>
-                        <div class="search-box">
-                            <input type="text" id="search-input" placeholder="🔍 Search by name or profession...">
-                        </div>
-                    </div>
-                    <div class="table-wrapper">
-                        <table id="classmates-table">
-                            <thead>
-                                <tr>
-                                    <th>First Name</th>
-                                    <th>Last Name</th>
-                                    <th>Profession</th>
-                                    <th>Telephone</th>
-                                    <th>Age</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="table-body">
-                                <tr>
-                                    <td colspan="6" class="loading-message">Please authenticate to load data...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="list-footer">
-                        <span id="record-count"></span>
-                        <button id="refresh-btn" class="btn icon-btn">🔄 Refresh</button>
-                    </div>
-                </section>
+        <!-- User Info Bar -->
+        <div id="userInfoBar" style="background: white; border-radius: 10px; padding: 15px 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <i class="fas fa-user-circle"></i> Welcome, <span id="usernameDisplay">User</span>
+                <span id="userRole" style="margin-left: 10px; padding: 3px 8px; border-radius: 3px; font-size: 12px;"></span>
             </div>
-        </main>
+            <div>
+                <span id="requestStats" style="margin-right: 15px;"></span>
+                <button onclick="logout()" style="background: #dc3545; color: white; border: none; padding: 5px 15px; border-radius: 5px; cursor: pointer;">Logout</button>
+            </div>
+        </div>
 
-        <footer>
-            <p>Data stored securely via JSONBinBro | Orange · Blue · Grey Theme</p>
-        </footer>
+        <div class="create-section card">
+            <h2>Create New Bin</h2>
+            <form id="createForm">
+                <div class="form-group">
+                    <label>Bin Name (Optional)</label>
+                    <input type="text" id="binName" placeholder="My Awesome Bin">
+                </div>
+                <div class="form-group">
+                    <label>JSON Data</label>
+                    <textarea id="jsonData" rows="5" placeholder='{"key": "value"}' required>{"message": "Hello World!"}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="isPrivate"> Private Bin (requires access key for read/update/delete)
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Bin <i class="fas fa-plus"></i></button>
+            </form>
+        </div>
+
+        <div class="bins-section">
+            <h2>Your Bins <i class="fas fa-list"></i></h2>
+            <div id="binsList" class="bins-grid"></div>
+        </div>
     </div>
 
+    <!-- Modal for viewing/editing bin -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">Bin Details</h2>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 20px; color: white; margin-top: 40px;">
+        <p>Email: geocorpsys@gmail.com | © 2026 JSONBinBro</p>
+        <p>Payments: PayPal, TonWallet, PayStack</p>
+    </footer>
+
+
+
     <script src="/static/script.js"></script>
+    <script>
+    // Check authentication on page load
+    const userId = localStorage.getItem('userId');
+    const apiKey = localStorage.getItem('apiKey');
+    const username = localStorage.getItem('username');
+    const userRole = localStorage.getItem('role');
+    const requestCount = localStorage.getItem('requestCount');
+    const requestLimit = localStorage.getItem('requestLimit');
+
+    if (!userId || !apiKey) {
+        window.location.href = '/login';
+    }
+
+    // Only set if elements exist and not already set by script.js
+    if (!document.getElementById('usernameDisplay').innerText || document.getElementById('usernameDisplay').innerText === 'User') {
+        document.getElementById('usernameDisplay').textContent = username;
+        document.getElementById('userRole').textContent = userRole === 'admin' ? 'Admin' : 'User';
+        document.getElementById('userRole').style.background = userRole === 'admin' ? '#dc3545' : '#28a745';
+        document.getElementById('userRole').style.color = 'white';
+        document.getElementById('requestStats').innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${requestLimit}`;
+    }
+
+      function logout() {
+            localStorage.clear();
+            window.location.href = '/login';
+        }
+
+</script>
+
+
 </body>
 </html>

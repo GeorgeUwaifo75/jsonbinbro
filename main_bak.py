@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
+
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
@@ -104,10 +105,17 @@ PAYMENT_RATES = {
 
 @app.post("/api/register")
 async def register(user: UserRegister):
-    existing = await users_collection.find_one({"username": user.username})
-    if existing:
+    # Check if username already exists
+    existing_username = await users_collection.find_one({"username": user.username})
+    if existing_username:
         raise HTTPException(status_code=400, detail="Username already exists")
     
+    # Check if email already exists
+    existing_email = await users_collection.find_one({"email": user.email})
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create new user
     new_user = {
         "username": user.username,
         "password": hash_password(user.password),
@@ -227,6 +235,20 @@ async def login_page():
                 margin-bottom: 20px;
                 display: none;
             }
+            .register-link {
+                text-align: center;
+                margin-top: 20px;
+                padding-top: 15px;
+                border-top: 1px solid #e0e0e0;
+            }
+            .register-link a {
+                color: #667eea;
+                text-decoration: none;
+                font-weight: 600;
+            }
+            .register-link a:hover {
+                text-decoration: underline;
+            }
             footer {
                 text-align: center;
                 margin-top: 30px;
@@ -256,10 +278,14 @@ async def login_page():
                 </div>
                 <button type="submit" class="btn-login">Login</button>
             </form>
-            <div class="demo-credentials">
+            
+             <div class="demo-credentials">
                 <strong>Demo Credentials:</strong><br>
                 👑 Admin: Admin01 / Kingfifo@#<br>
                 👤 User: User01 / 1234@#
+            </div>
+            <div class="register-link">
+                New to JSONBinBro? <a href="/register">Create an account →</a>
             </div>
             <footer>
                 <p>Email: geocorpsys@gmail.com | © 2026 JSONBinBro</p>
@@ -340,8 +366,259 @@ async def login(user: UserLogin):
         "payment_level": db_user.get("payment_level", 0)
     }
 
-
-
+@app.get("/register", response_class=HTMLResponse)
+async def register_page():
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Register - JSONBinBro</title>
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+            .register-container {
+                background: white;
+                border-radius: 10px;
+                padding: 40px;
+                width: 100%;
+                max-width: 450px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+            .register-header {
+                text-align: center;
+                margin-bottom: 30px;
+            }
+            .register-header h1 {
+                color: #667eea;
+                font-size: 32px;
+                margin-bottom: 10px;
+            }
+            .register-header i {
+                font-size: 48px;
+                color: #667eea;
+                margin-bottom: 10px;
+            }
+            .register-header .tagline {
+                font-size: 14px;
+                color: #666;
+                margin-top: 5px;
+            }
+            .form-group {
+                margin-bottom: 20px;
+            }
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 600;
+                color: #333;
+            }
+            .form-group input {
+                width: 100%;
+                padding: 12px;
+                border: 2px solid #e0e0e0;
+                border-radius: 5px;
+                font-size: 14px;
+                transition: border-color 0.3s;
+            }
+            .form-group input:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+            .btn-register {
+                width: 100%;
+                padding: 12px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 16px;
+                cursor: pointer;
+                transition: transform 0.2s;
+            }
+            .btn-register:hover {
+                transform: translateY(-2px);
+            }
+            .login-link {
+                text-align: center;
+                margin-top: 20px;
+                color: #666;
+            }
+            .login-link a {
+                color: #667eea;
+                text-decoration: none;
+            }
+            .login-link a:hover {
+                text-decoration: underline;
+            }
+            .error-message {
+                background: #f8d7da;
+                color: #dc3545;
+                padding: 10px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+                display: none;
+            }
+            .success-message {
+                background: #d4edda;
+                color: #28a745;
+                padding: 10px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+                display: none;
+            }
+            footer {
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e0e0e0;
+                font-size: 12px;
+                color: #666;
+            }
+            .password-requirements {
+                font-size: 11px;
+                color: #666;
+                margin-top: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="register-container">
+            <div class="register-header">
+                <i class="fas fa-database"></i>
+                <h1>JSONBinBro</h1>
+                <p class="tagline">We make storage and retrieval even fun! 🚀</p>
+                <p>Create your free account</p>
+            </div>
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label>Username *</label>
+                    <input type="text" id="username" required placeholder="Choose a username (min 3 characters)">
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="email" required placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label>Password *</label>
+                    <input type="password" id="password" required placeholder="Create a password (min 6 characters)">
+                    <div class="password-requirements">Minimum 6 characters required</div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password *</label>
+                    <input type="password" id="confirmPassword" required placeholder="Confirm your password">
+                </div>
+                <button type="submit" class="btn-register">Create Account</button>
+            </form>
+            <div class="login-link">
+                Already have an account? <a href="/login">Login here</a>
+            </div>
+            <footer>
+                <p>Email: geocorpsys@gmail.com | © 2026 JSONBinBro</p>
+                <p>Payments: PayPal, TonWallet, PayStack</p>
+            </footer>
+        </div>
+        <script>
+            document.getElementById('registerForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const username = document.getElementById('username').value.trim();
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                // Clear previous messages
+                document.getElementById('errorMessage').style.display = 'none';
+                document.getElementById('successMessage').style.display = 'none';
+                
+                // Validation
+                if (!username || !email || !password) {
+                    showError('Please fill in all fields');
+                    return;
+                }
+                
+                if (username.length < 3) {
+                    showError('Username must be at least 3 characters');
+                    return;
+                }
+                
+                if (password.length < 6) {
+                    showError('Password must be at least 6 characters');
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    showError('Passwords do not match');
+                    return;
+                }
+                
+                const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showError('Please enter a valid email address');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, email, password })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        showSuccess('Account created successfully! Redirecting to login...');
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 2000);
+                    } else {
+                        const error = await response.json();
+                        showError(error.detail || 'Registration failed');
+                    }
+                } catch (error) {
+                    showError('Network error. Please try again.');
+                }
+            });
+            
+            function showError(message) {
+                const errorDiv = document.getElementById('errorMessage');
+                const successDiv = document.getElementById('successMessage');
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+                successDiv.style.display = 'none';
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 3000);
+            }
+            
+            function showSuccess(message) {
+                const successDiv = document.getElementById('successMessage');
+                const errorDiv = document.getElementById('errorMessage');
+                successDiv.textContent = message;
+                successDiv.style.display = 'block';
+                errorDiv.style.display = 'none';
+            }
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 @app.get("/api/user/{user_id}")
 async def get_user(user_id: str, api_key: str):

@@ -615,11 +615,7 @@ async def login_page():
                 </div>
                 <button type="submit" class="btn-login">Login</button>
             </form>
-            <div class="demo-credentials">
-                <strong>Demo Credentials:</strong><br>
-                👑 Admin: Admin01 / Kingfifo@#<br>
-                👤 User: User01 / 1234@#
-            </div>
+            
             <div class="register-link">
                 New to JSONBinBro? <a href="/register">Create an account →</a>
             </div>

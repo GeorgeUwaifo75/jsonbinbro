@@ -1,4 +1,4 @@
-// script.js - Updated to handle request counting for all operations
+// script.js - Fixed version without recursion
 const API_BASE = '/api';
 let userId = null;
 let apiKey = null;
@@ -29,12 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('userRole').style.color = 'white';
     updateRequestStatsDisplay();
     
-    // Setup logout button
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.onclick = logout;
-    }
-    
     // Load bins
     loadAllBins();
     setupCreateForm();
@@ -58,13 +52,62 @@ function updateRequestStatsDisplay() {
     
     // Show warning if approaching limit
     if (percentUsed >= 90) {
-        showToast(`⚠️ Warning: You've used ${requestCount} of ${requestLimit} requests. Please upgrade your plan!`, 'warning');
+        showToastMessage(`⚠️ Warning: You've used ${requestCount} of ${requestLimit} requests. Please upgrade your plan!`, 'warning');
     } else if (percentUsed >= 70) {
-        showToast(`📊 Note: You've used ${requestCount} of ${requestLimit} requests.`, 'info');
+        showToastMessage(`📊 Note: You've used ${requestCount} of ${requestLimit} requests.`, 'info');
     }
 }
 
-// Update request count after API call
+// Fixed showToast function - no recursion
+function showToastMessage(message, type = 'success') {
+    // Remove any existing toasts
+    const existingToasts = document.querySelectorAll('.toast-message');
+    existingToasts.forEach(toast => toast.remove());
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast-message';
+    let bgColor = '#28a745';
+    let icon = 'fa-check-circle';
+    
+    if (type === 'error') {
+        bgColor = '#dc3545';
+        icon = 'fa-exclamation-circle';
+    } else if (type === 'warning') {
+        bgColor = '#ffc107';
+        icon = 'fa-exclamation-triangle';
+    } else if (type === 'info') {
+        bgColor = '#17a2b8';
+        icon = 'fa-info-circle';
+    }
+    
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: ${bgColor};
+        color: ${type === 'warning' ? '#333' : 'white'};
+        padding: 12px 20px;
+        border-radius: 5px;
+        z-index: 1000;
+        animation: slideInRight 0.3s ease-out;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    `;
+    toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast && toast.remove) {
+            toast.remove();
+        }
+    }, 3000);
+}
+
+// Refresh user data after API calls
 async function refreshUserData() {
     try {
         const response = await fetch(`${API_BASE}/user/${userId}?api_key=${apiKey}`);
@@ -83,7 +126,7 @@ async function refreshUserData() {
 
 // Search function
 function searchBins() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
     const filtered = allBins.filter(bin => 
         (bin.name && bin.name.toLowerCase().includes(searchTerm)) ||
         bin.id.toLowerCase().includes(searchTerm)
@@ -109,25 +152,24 @@ async function loadAllBins() {
                 displayBins([]);
                 updateStats([]);
             }
-            // Refresh user data to get updated request count
             await refreshUserData();
         } else if (response.status === 401) {
             console.error('Session expired');
-            showToast('Session expired. Please login again.', 'error');
+            showToastMessage('Session expired. Please login again.', 'error');
             setTimeout(() => {
                 window.location.href = '/login';
             }, 2000);
         } else if (response.status === 403) {
             const error = await response.json();
-            showToast(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+            showToastMessage(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
         } else {
             const error = await response.json();
             console.error('Failed to load bins:', error);
-            showToast('Failed to load bins: ' + (error.detail || 'Unknown error'), 'error');
+            showToastMessage('Failed to load bins: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error loading bins:', error);
-        showToast('Failed to load bins. Please check your connection.', 'error');
+        showToastMessage('Failed to load bins. Please check your connection.', 'error');
     }
 }
 
@@ -206,9 +248,8 @@ function setupCreateForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Check if user has reached request limit
         if (requestCount >= requestLimit) {
-            showToast('❌ Request limit exceeded! Please upgrade your plan to create more bins.', 'error');
+            showToastMessage('❌ Request limit exceeded! Please upgrade your plan to create more bins.', 'error');
             return;
         }
         
@@ -226,25 +267,25 @@ function setupCreateForm() {
             
             if (response.status === 403) {
                 const error = await response.json();
-                showToast(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+                showToastMessage(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
                 return;
             }
             
             if (response.ok) {
                 const bin = await response.json();
-                showToast(`✅ Bin created successfully! ID: ${bin.id}`, 'success');
+                showToastMessage(`✅ Bin created successfully! ID: ${bin.id}`, 'success');
                 document.getElementById('createForm').reset();
                 document.getElementById('jsonData').value = '{"message": "Hello World!"}';
-                await loadAllBins(); // This will refresh request count
+                await loadAllBins();
             } else {
                 const error = await response.json();
-                showToast(error.detail || 'Failed to create bin', 'error');
+                showToastMessage(error.detail || 'Failed to create bin', 'error');
             }
         } catch (error) {
             if (error instanceof SyntaxError) {
-                showToast('Invalid JSON format. Please check your syntax.', 'error');
+                showToastMessage('Invalid JSON format. Please check your syntax.', 'error');
             } else {
-                showToast(error.message || 'Failed to create bin', 'error');
+                showToastMessage(error.message || 'Failed to create bin', 'error');
             }
         }
     });
@@ -293,17 +334,16 @@ async function viewBin(id) {
                 </div>
             `);
         } else {
-            showToast('Failed to load bin', 'error');
+            showToastMessage('Failed to load bin', 'error');
         }
     } catch (error) {
-        showToast('Error accessing bin', 'error');
+        showToastMessage('Error accessing bin', 'error');
     }
 }
 
 async function editBin(id) {
-    // Check if user has reached request limit
     if (requestCount >= requestLimit) {
-        showToast('❌ Request limit exceeded! Please upgrade your plan to edit bins.', 'error');
+        showToastMessage('❌ Request limit exceeded! Please upgrade your plan to edit bins.', 'error');
         return;
     }
     
@@ -330,7 +370,7 @@ async function editBin(id) {
             <button onclick="submitEdit('${id}')" class="btn btn-primary">Save Changes</button>
         `);
     } catch (error) {
-        showToast('Failed to load bin for editing', 'error');
+        showToastMessage('Failed to load bin for editing', 'error');
     }
 }
 
@@ -349,29 +389,28 @@ async function submitEdit(id) {
         
         if (response.status === 403) {
             const error = await response.json();
-            showToast(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+            showToastMessage(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
             return;
         }
         
         if (response.ok) {
-            showToast('✅ Bin updated successfully!', 'success');
+            showToastMessage('✅ Bin updated successfully!', 'success');
             closeModal();
-            await loadAllBins(); // This will refresh request count
+            await loadAllBins();
         } else {
             const error = await response.json();
-            showToast(error.detail || 'Failed to update bin', 'error');
+            showToastMessage(error.detail || 'Failed to update bin', 'error');
         }
     } catch (error) {
-        showToast('Invalid JSON format', 'error');
+        showToastMessage('Invalid JSON format', 'error');
     }
 }
 
 async function deleteBin(id) {
     if (!confirm('⚠️ Are you sure you want to delete this bin? This action cannot be undone and will count toward your API requests.')) return;
     
-    // Check if user has reached request limit
     if (requestCount >= requestLimit) {
-        showToast('❌ Request limit exceeded! Please upgrade your plan to delete bins.', 'error');
+        showToastMessage('❌ Request limit exceeded! Please upgrade your plan to delete bins.', 'error');
         return;
     }
     
@@ -382,18 +421,18 @@ async function deleteBin(id) {
         
         if (response.status === 403) {
             const error = await response.json();
-            showToast(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+            showToastMessage(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
             return;
         }
         
         if (response.ok) {
-            showToast('✅ Bin deleted successfully!', 'success');
-            await loadAllBins(); // This will refresh request count
+            showToastMessage('✅ Bin deleted successfully!', 'success');
+            await loadAllBins();
         } else {
-            showToast('Failed to delete bin', 'error');
+            showToastMessage('Failed to delete bin', 'error');
         }
     } catch (error) {
-        showToast('Error deleting bin', 'error');
+        showToastMessage('Error deleting bin', 'error');
     }
 }
 
@@ -427,24 +466,7 @@ function closeModal() {
 
 function copyToClipboard(text, field) {
     navigator.clipboard.writeText(text);
-    showToast(`${field} copied to clipboard!`, 'success');
-}
-
-function showToast(message, type = 'success') {
-    if (window.showToast) {
-        window.showToast(message, type);
-    } else {
-        // Fallback for older browsers
-        alert(message);
-    }
-}
-
-function showError(message) {
-    showToast(message, 'error');
-}
-
-function showSuccess(message) {
-    showToast(message, 'success');
+    showToastMessage(`${field} copied to clipboard!`, 'success');
 }
 
 function escapeHtml(text) {
@@ -452,3 +474,12 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// Make functions available globally
+window.searchBins = searchBins;
+window.logout = logout;
+window.viewBin = viewBin;
+window.editBin = editBin;
+window.deleteBin = deleteBin;
+window.submitEdit = submitEdit;
+window.copyToClipboard = copyToClipboard;

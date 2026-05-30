@@ -1,7 +1,10 @@
+// script.js - Updated to handle request counting for all operations
 const API_BASE = '/api';
 let userId = null;
 let apiKey = null;
 let allBins = [];
+let requestCount = 0;
+let requestLimit = 300;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,8 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     apiKey = localStorage.getItem('apiKey');
     const username = localStorage.getItem('username');
     const userRole = localStorage.getItem('role');
-    const requestCount = localStorage.getItem('requestCount');
-    const requestLimit = localStorage.getItem('requestLimit');
+    requestCount = parseInt(localStorage.getItem('requestCount') || '0');
+    requestLimit = parseInt(localStorage.getItem('requestLimit') || '300');
     
     // Check if user is logged in
     if (!userId || !apiKey) {
@@ -24,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('userRole').textContent = userRole === 'admin' ? 'Admin' : 'User';
     document.getElementById('userRole').style.background = userRole === 'admin' ? '#dc3545' : '#28a745';
     document.getElementById('userRole').style.color = 'white';
-    document.getElementById('requestStats').innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${requestLimit}`;
+    updateRequestStatsDisplay();
     
     // Setup logout button
     const logoutBtn = document.getElementById('logoutBtn');
@@ -37,6 +40,46 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCreateForm();
     setupModal();
 });
+
+// Update request stats display
+function updateRequestStatsDisplay() {
+    const percentUsed = (requestCount / requestLimit) * 100;
+    let statusClass = '';
+    if (percentUsed >= 90) {
+        statusClass = 'request-danger';
+    } else if (percentUsed >= 70) {
+        statusClass = 'request-warning';
+    }
+    const statsElement = document.getElementById('requestStats');
+    if (statsElement) {
+        statsElement.className = statusClass;
+        statsElement.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${requestLimit}`;
+    }
+    
+    // Show warning if approaching limit
+    if (percentUsed >= 90) {
+        showToast(`⚠️ Warning: You've used ${requestCount} of ${requestLimit} requests. Please upgrade your plan!`, 'warning');
+    } else if (percentUsed >= 70) {
+        showToast(`📊 Note: You've used ${requestCount} of ${requestLimit} requests.`, 'info');
+    }
+}
+
+// Update request count after API call
+async function refreshUserData() {
+    try {
+        const response = await fetch(`${API_BASE}/user/${userId}?api_key=${apiKey}`);
+        if (response.ok) {
+            const userData = await response.json();
+            requestCount = userData.request_count;
+            requestLimit = userData.request_limit;
+            localStorage.setItem('requestCount', requestCount);
+            localStorage.setItem('requestLimit', requestLimit);
+            updateRequestStatsDisplay();
+        }
+    } catch (error) {
+        console.error('Failed to refresh user data:', error);
+    }
+}
 
 // Search function
 function searchBins() {
@@ -59,7 +102,6 @@ async function loadAllBins() {
         const response = await fetch(`${API_BASE}/bins?user_id=${userId}&api_key=${apiKey}`);
         if (response.ok) {
             allBins = await response.json();
-            // Ensure bins is an array
             if (Array.isArray(allBins)) {
                 displayBins(allBins);
                 updateStats(allBins);
@@ -67,20 +109,25 @@ async function loadAllBins() {
                 displayBins([]);
                 updateStats([]);
             }
+            // Refresh user data to get updated request count
+            await refreshUserData();
         } else if (response.status === 401) {
             console.error('Session expired');
-            showError('Session expired. Please login again.');
+            showToast('Session expired. Please login again.', 'error');
             setTimeout(() => {
                 window.location.href = '/login';
             }, 2000);
+        } else if (response.status === 403) {
+            const error = await response.json();
+            showToast(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
         } else {
             const error = await response.json();
             console.error('Failed to load bins:', error);
-            showError('Failed to load bins: ' + (error.detail || 'Unknown error'));
+            showToast('Failed to load bins: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error loading bins:', error);
-        showError('Failed to load bins. Please check your connection.');
+        showToast('Failed to load bins. Please check your connection.', 'error');
     }
 }
 
@@ -159,6 +206,12 @@ function setupCreateForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        // Check if user has reached request limit
+        if (requestCount >= requestLimit) {
+            showToast('❌ Request limit exceeded! Please upgrade your plan to create more bins.', 'error');
+            return;
+        }
+        
         const name = document.getElementById('binName').value;
         const dataText = document.getElementById('jsonData').value;
         const isPrivate = document.getElementById('isPrivate').checked;
@@ -171,30 +224,27 @@ function setupCreateForm() {
                 body: JSON.stringify({ name, data, is_private: isPrivate })
             });
             
+            if (response.status === 403) {
+                const error = await response.json();
+                showToast(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+                return;
+            }
+            
             if (response.ok) {
                 const bin = await response.json();
-                showSuccess(`Bin created successfully! ID: ${bin.id}`);
+                showToast(`✅ Bin created successfully! ID: ${bin.id}`, 'success');
                 document.getElementById('createForm').reset();
                 document.getElementById('jsonData').value = '{"message": "Hello World!"}';
-                loadAllBins();
-                
-                // Update request count in localStorage
-                const newRequestCount = parseInt(localStorage.getItem('requestCount') || '0') + 1;
-                localStorage.setItem('requestCount', newRequestCount);
-                const requestStatsEl = document.getElementById('requestStats');
-                if (requestStatsEl) {
-                    const requestLimit = localStorage.getItem('requestLimit') || '300';
-                    requestStatsEl.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${newRequestCount}/${requestLimit}`;
-                }
+                await loadAllBins(); // This will refresh request count
             } else {
                 const error = await response.json();
-                showError(error.detail || 'Failed to create bin');
+                showToast(error.detail || 'Failed to create bin', 'error');
             }
         } catch (error) {
             if (error instanceof SyntaxError) {
-                showError('Invalid JSON format. Please check your syntax.');
+                showToast('Invalid JSON format. Please check your syntax.', 'error');
             } else {
-                showError(error.message || 'Failed to create bin');
+                showToast(error.message || 'Failed to create bin', 'error');
             }
         }
     });
@@ -243,14 +293,20 @@ async function viewBin(id) {
                 </div>
             `);
         } else {
-            showError('Failed to load bin');
+            showToast('Failed to load bin', 'error');
         }
     } catch (error) {
-        showError('Error accessing bin');
+        showToast('Error accessing bin', 'error');
     }
 }
 
 async function editBin(id) {
+    // Check if user has reached request limit
+    if (requestCount >= requestLimit) {
+        showToast('❌ Request limit exceeded! Please upgrade your plan to edit bins.', 'error');
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE}/bins/${id}?api_key=${apiKey}`);
         if (!response.ok) throw new Error('Failed to fetch bin');
@@ -274,7 +330,7 @@ async function editBin(id) {
             <button onclick="submitEdit('${id}')" class="btn btn-primary">Save Changes</button>
         `);
     } catch (error) {
-        showError('Failed to load bin for editing');
+        showToast('Failed to load bin for editing', 'error');
     }
 }
 
@@ -291,35 +347,53 @@ async function submitEdit(id) {
             body: JSON.stringify({ name, data, is_private: isPrivate })
         });
         
+        if (response.status === 403) {
+            const error = await response.json();
+            showToast(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+            return;
+        }
+        
         if (response.ok) {
-            showSuccess('Bin updated successfully');
+            showToast('✅ Bin updated successfully!', 'success');
             closeModal();
-            loadAllBins();
+            await loadAllBins(); // This will refresh request count
         } else {
             const error = await response.json();
-            showError(error.detail || 'Failed to update bin');
+            showToast(error.detail || 'Failed to update bin', 'error');
         }
     } catch (error) {
-        showError('Invalid JSON format');
+        showToast('Invalid JSON format', 'error');
     }
 }
 
 async function deleteBin(id) {
-    if (!confirm('Are you sure you want to delete this bin? This action cannot be undone.')) return;
+    if (!confirm('⚠️ Are you sure you want to delete this bin? This action cannot be undone and will count toward your API requests.')) return;
+    
+    // Check if user has reached request limit
+    if (requestCount >= requestLimit) {
+        showToast('❌ Request limit exceeded! Please upgrade your plan to delete bins.', 'error');
+        return;
+    }
     
     try {
         const response = await fetch(`${API_BASE}/bins/${id}?api_key=${apiKey}`, { 
             method: 'DELETE' 
         });
         
+        if (response.status === 403) {
+            const error = await response.json();
+            showToast(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+            return;
+        }
+        
         if (response.ok) {
-            showSuccess('Bin deleted successfully');
-            loadAllBins();
+            showToast('✅ Bin deleted successfully!', 'success');
+            await loadAllBins(); // This will refresh request count
         } else {
-            showError('Failed to delete bin');
+            showToast('Failed to delete bin', 'error');
         }
     } catch (error) {
-        showError('Error deleting bin');
+        showToast('Error deleting bin', 'error');
     }
 }
 
@@ -353,33 +427,24 @@ function closeModal() {
 
 function copyToClipboard(text, field) {
     navigator.clipboard.writeText(text);
-    showSuccess(`${field} copied to clipboard!`);
+    showToast(`${field} copied to clipboard!`, 'success');
+}
+
+function showToast(message, type = 'success') {
+    if (window.showToast) {
+        window.showToast(message, type);
+    } else {
+        // Fallback for older browsers
+        alert(message);
+    }
 }
 
 function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error';
-    errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
-    const container = document.querySelector('.container');
-    if (container) {
-        container.insertBefore(errorDiv, container.firstChild);
-        setTimeout(() => errorDiv.remove(), 3000);
-    } else {
-        alert(message);
-    }
+    showToast(message, 'error');
 }
 
 function showSuccess(message) {
-    const successDiv = document.createElement('div');
-    successDiv.className = 'success';
-    successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
-    const container = document.querySelector('.container');
-    if (container) {
-        container.insertBefore(successDiv, container.firstChild);
-        setTimeout(() => successDiv.remove(), 3000);
-    } else {
-        alert(message);
-    }
+    showToast(message, 'success');
 }
 
 function escapeHtml(text) {

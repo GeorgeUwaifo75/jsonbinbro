@@ -316,8 +316,10 @@
     apiKey = localStorage.getItem('apiKey');
     let username = localStorage.getItem('username');
     let userRole = localStorage.getItem('role');
-    let requestCount = parseInt(localStorage.getItem('requestCount') || '0');
-    let requestLimit = parseInt(localStorage.getItem('requestLimit') || '300');
+    //let 
+    requestCount = parseInt(localStorage.getItem('requestCount') || '0');
+    //let 
+    requestLimit = parseInt(localStorage.getItem('requestLimit') || '300');
 
     if (!userId || !apiKey) {
         window.location.href = '/login';

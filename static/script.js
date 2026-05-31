@@ -5,7 +5,7 @@ let apiKey = null;
 let allBins = [];
 let requestCount = 0;
 let requestLimit = 300;
-let currentViewMode = 'grid';
+let currentViewMode = 'list';
 let currentUserRole = null;
 let currentUsername = null;
 
@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAllBins();
     setupCreateForm();
     
+    // Set initial view to list mode
+    setViewMode('list');
+
     // Load users if admin
     if (currentUserRole === 'admin') {
         loadAllUsers();

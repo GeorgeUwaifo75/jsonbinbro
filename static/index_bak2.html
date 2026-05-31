@@ -1,4 +1,4 @@
-<!-- static/index.html - Updated with proper admin panel structure -->
+<!-- static/index.html - Updated with navigation menu and new features -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -53,7 +53,6 @@
             display: flex;
             gap: 20px;
             align-items: center;
-            flex-wrap: wrap;
         }
         .nav-links a {
             color: #667eea;
@@ -62,7 +61,6 @@
             display: inline-block;
             font-weight: 500;
             transition: all 0.3s;
-            cursor: pointer;
         }
         .nav-links a:hover {
             background: #f0f0f0;
@@ -88,7 +86,6 @@
             text-decoration: none;
             display: block;
             border-bottom: 1px solid #eee;
-            cursor: pointer;
         }
         .dropdown-content a:hover {
             background-color: #f8f9fa;
@@ -101,6 +98,7 @@
         .view-toggle {
             display: flex;
             gap: 10px;
+            margin-bottom: 20px;
         }
         .view-toggle button {
             padding: 8px 16px;
@@ -175,7 +173,6 @@
             padding: 3px 8px;
             border-radius: 3px;
             font-size: 11px;
-            display: inline-block;
         }
         .status-active {
             background: #d4edda;
@@ -198,35 +195,6 @@
             border: 1px solid #ddd;
             border-radius: 5px;
         }
-        
-        /* Admin Panel */
-        .admin-panel {
-            display: none;
-        }
-        .admin-panel.active {
-            display: block;
-        }
-        
-        .dashboard-content {
-            display: block;
-        }
-        .dashboard-content.hidden {
-            display: none;
-        }
-        
-        /* Button styles */
-        .btn-sm {
-            padding: 5px 10px;
-            font-size: 12px;
-        }
-        .btn-info {
-            background: #17a2b8;
-            color: white;
-        }
-        .btn-warning {
-            background: #ffc107;
-            color: #333;
-        }
     </style>
 </head>
 <body>
@@ -240,18 +208,17 @@
         <!-- Navigation Menu -->
         <div class="nav-menu">
             <div class="nav-links">
-                <a onclick="showDashboard()"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="#" onclick="showDashboard()"><i class="fas fa-home"></i> Dashboard</a>
                 <div class="dropdown">
-                    <a><i class="fas fa-book"></i> Documentation <i class="fas fa-caret-down"></i></a>
+                    <a href="#"><i class="fas fa-book"></i> Documentation <i class="fas fa-caret-down"></i></a>
                     <div class="dropdown-content" id="docsContent">
-                        <a onclick="showDocumentation()">📖 View Documentation</a>
-                        <a onclick="downloadDocumentation()">📥 Download Documentation</a>
+                        <!-- Documentation will be loaded dynamically -->
                     </div>
                 </div>
-                <a onclick="showContact()"><i class="fas fa-envelope"></i> Contact</a>
-                <a onclick="showPayment()"><i class="fas fa-credit-card"></i> Payment</a>
-                <a onclick="showProfile()"><i class="fas fa-user"></i> Profile</a>
-                <a id="adminPanelLink" onclick="showAdminPanel()" style="display: none;"><i class="fas fa-users-cog"></i> Admin Panel</a>
+                <a href="#" onclick="showContact()"><i class="fas fa-envelope"></i> Contact</a>
+                <a href="#" onclick="showPayment()"><i class="fas fa-credit-card"></i> Payment</a>
+                <a href="#" onclick="showProfile()"><i class="fas fa-user"></i> Profile</a>
+                <a href="#" id="adminPanelLink" style="display: none;" onclick="showAdminPanel()"><i class="fas fa-users-cog"></i> Admin Panel</a>
             </div>
             <div>
                 <span id="requestStats" style="margin-right: 15px; padding: 5px 10px; border-radius: 20px; font-size: 14px;"></span>
@@ -260,7 +227,7 @@
         </div>
 
         <!-- User Info Bar -->
-        <div id="userInfoBar" style="background: white; border-radius: 10px; padding: 15px 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div id="userInfoBar" style="background: white; border-radius: 10px; padding: 15px 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <i class="fas fa-user-circle"></i> Welcome, <span id="usernameDisplay">User</span>
                 <span id="userRole" style="margin-left: 10px; padding: 3px 8px; border-radius: 3px; font-size: 12px;"></span>
@@ -272,7 +239,7 @@
         </div>
 
         <!-- Main Dashboard Content -->
-        <div id="dashboardContent" class="dashboard-content">
+        <div id="dashboardContent">
             <div class="create-section card">
                 <h2>Create New Bin</h2>
                 <form id="createForm">
@@ -299,13 +266,12 @@
             </div>
         </div>
 
-        <!-- Admin Panel Content -->
-        <div id="adminPanelContent" class="admin-panel">
+        <!-- Admin Panel Content (hidden by default) -->
+        <div id="adminPanelContent" style="display: none;">
             <div class="card">
                 <h2><i class="fas fa-users"></i> User Management</h2>
-                <p>Manage all registered users below:</p>
                 <div class="users-table-container">
-                    <table class="users-table">
+                    <table class="users-table" id="usersTable">
                         <thead>
                             <tr>
                                 <th>Username</th>
@@ -318,20 +284,20 @@
                             </tr>
                         </thead>
                         <tbody id="usersTableBody">
-                            <tr><td colspan="7" style="text-align: center;">Loading users...</td></tr>
+                            <td><td colspan="7">Loading users...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Modal for viewing/editing bin -->
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2 id="modalTitle">Bin Details</h2>
-            <div id="modalBody"></div>
+        <!-- Modal for viewing/editing bin -->
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 id="modalTitle">Bin Details</h2>
+                <div id="modalBody"></div>
+            </div>
         </div>
     </div>
 
@@ -344,12 +310,24 @@
     <script src="/static/script.js"></script>
     <script>
     // Check authentication on page load
-    const userId = localStorage.getItem('userId');
-    const apiKey = localStorage.getItem('apiKey');
-    const username = localStorage.getItem('username');
-    const userRole = localStorage.getItem('role');
+    let userId = localStorage.getItem('userId');
+    let apiKey = localStorage.getItem('apiKey');
+    let username = localStorage.getItem('username');
+    let userRole = localStorage.getItem('role');
+    let requestCount = parseInt(localStorage.getItem('requestCount') || '0');
+    let requestLimit = parseInt(localStorage.getItem('requestLimit') || '300');
 
     if (!userId || !apiKey) {
+        window.location.href = '/login';
+    }
+
+    // Show/hide admin panel link based on role
+    if (userRole === 'admin') {
+        document.getElementById('adminPanelLink').style.display = 'inline-block';
+    }
+
+    function logout() {
+        localStorage.clear();
         window.location.href = '/login';
     }
     </script>

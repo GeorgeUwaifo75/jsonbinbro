@@ -819,20 +819,16 @@ async def confirm_payment(payment_id: str, user_id: str, transaction_id: str):
 
 @app.get("/api/admin/users")
 async def get_all_users(admin_key: str):
-    # Debug logging
-    print(f"Received admin_key: {admin_key}")
-    print(f"Expected admin_key from env: {os.getenv('ADMIN_KEY', 'admin123')}")
-    
     if admin_key != os.getenv("ADMIN_KEY", "admin123"):
-        raise HTTPException(status_code=401, detail="Unauthorized - Invalid admin key")
+        raise HTTPException(status_code=401, detail="Unauthorized")
     
     users = []
     async for user in users_collection.find():
         users.append({
             "id": str(user["_id"]),
             "username": user["username"],
-            "email": user.get("email", ""),
-            "role": user.get("role", "user"),
+            "email": user["email"],
+            "role": user["role"],
             "request_count": user.get("request_count", 0),
             "request_limit": user.get("request_limit", 300),
             "payment_level": user.get("payment_level", 0),
@@ -842,24 +838,21 @@ async def get_all_users(admin_key: str):
     return users
 
 @app.put("/api/admin/users/{user_id}/toggle")
-async def admin_toggle_user_status(user_id: str, admin_key: str):
+async def toggle_user_status(user_id: str, admin_key: str):
     if admin_key != os.getenv("ADMIN_KEY", "admin123"):
-        raise HTTPException(status_code=401, detail="Unauthorized - Invalid admin key")
+        raise HTTPException(status_code=401, detail="Unauthorized")
     
-    try:
-        user = await users_collection.find_one({"_id": ObjectId(user_id)})
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        new_status = not user.get("is_active", True)
-        await users_collection.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": {"is_active": new_status}}
-        )
-        
-        return {"message": f"User {'activated' if new_status else 'deactivated'}", "is_active": new_status}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error toggling user status: {str(e)}")
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_status = not user.get("is_active", True)
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"is_active": new_status}}
+    )
+    
+    return {"message": f"User {'activated' if new_status else 'deactivated'}"}
 
 @app.put("/api/admin/rates")
 async def update_payment_rates(admin_key: str, rates: dict):
@@ -932,25 +925,38 @@ async def update_user_profile(user_id: str, api_key: str, email: Optional[str] =
     return {"message": "Profile updated successfully"}
 
 @app.post("/api/admin/users/{user_id}/reset-password")
-async def admin_reset_user_password(user_id: str, admin_key: str):
+async def admin_reset_password(user_id: str, admin_key: str):
     if admin_key != os.getenv("ADMIN_KEY", "admin123"):
-        raise HTTPException(status_code=401, detail="Unauthorized - Invalid admin key")
+        raise HTTPException(status_code=401, detail="Unauthorized")
     
-    try:
-        user = await users_collection.find_one({"_id": ObjectId(user_id)})
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Reset password to "password01"
-        await users_collection.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": {"password": hash_password("password01")}}
-        )
-        
-        return {"message": "Password reset successfully to 'password01'"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error resetting password: {str(e)}")
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Reset password to "password01"
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"password": hash_password("password01")}}
+    )
+    
+    return {"message": "Password reset successfully to 'password01'"}
 
+@app.put("/api/admin/users/{user_id}/toggle")
+async def toggle_user_status(user_id: str, admin_key: str):
+    if admin_key != os.getenv("ADMIN_KEY", "admin123"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_status = not user.get("is_active", True)
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"is_active": new_status}}
+    )
+    
+    return {"message": f"User {'activated' if new_status else 'deactivated'}"}
 
 # ============ EXISTING ENDPOINTS (keep for backward compatibility) ============
 

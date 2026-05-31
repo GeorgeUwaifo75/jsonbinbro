@@ -1,0 +1,34 @@
+Introduction:
+JSONBINBro is a JSON data structure supporting platform like many others out there that allows users to create and store simple, medium and even highly complex JSON data structures. This platform became necessary because of the need to serve the many potential users who need a resource that is simple, user-friendly and financially friendly.  There are so many others that do not meet these basic criteria.  
+
+This is perfect for young developers, data analysts, startups, small and medium-sized organizations as well as for students.  They need a quick and easy way to store data which is accessible at any time.
+
+RESTful:
+The JSONBINBro is a RESTful platform that allows the GET, PUT, POST and other API calls.  The data records are rightly called BINs.  In order to be able to modify the entries of a BIN, you would need the API_KEY, the BIN id and the User ID that created it. This information can be found on the dashboard of the user.
+
+Dashboard:
+On the dashboards of individual users, you can clearly access all the created BINs attached to that account and they can be viewed, edited or deleted as needed.  The dashboard shows the list of all the already created data structures by the user.
+
+Requests and Limits:
+When a user creates a new account, they automatically get rewarded with 300 free requests for their future applications or their activities on their portals.  Every create, update or delete activity will count as individual requests and would be deducted from their account.
+
+Requirements & API connection guide:
+In order to properly connect to the JSONBINBro API, the following configuration must be put in place:
+
+const API_BASE = 'https://jsonbinbro.onrender.com/api';
+const BIN_ID = '6a56hxxyybiif596be2teste2'; 
+
+// User credentials
+const USER_ID = '<user_id>';
+const API_KEY = 'XcymJbykd_your_generated_api_keyuubb';
+
+Payment:
+A user can request additional requests by making payments in one of three (3) ways:
+PayPal  (uwaifo_victor@yahoo.com)
+TonWallet on Telegram (to the account @GeorgeUwaifo)
+PayStack (This will go through the PayStack API)
+
+Payment rates:
+    1: {"requests": 2000,  "price_usd": 2.0},
+    2: {"requests": 5000,  "price_usd": 3.5},
+    3: {"requests": 10000, "price_usd": 6.0}

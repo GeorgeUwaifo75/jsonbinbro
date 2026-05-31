@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Load documentation from file
 async function loadDocumentation() {
     try {
-        const response = await fetch('/static/JSONBINBro Documentation.txt');
+        const response = await fetch('/static/JSONBINBro_Documentation.txt');
         const docContent = await response.text();
         const docsDropdown = document.getElementById('docsContent');
         if (docsDropdown) {
@@ -65,7 +65,7 @@ async function loadDocumentation() {
 
 // Show documentation in modal
 function showDocumentation() {
-    fetch('/static/JSONBINBro Documentation.txt')
+    fetch('/static/JSONBINBro_Documentation.txt')
         .then(res => res.text())
         .then(content => {
             showModal('Documentation', `<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(content)}</pre>`);
@@ -74,7 +74,7 @@ function showDocumentation() {
 }
 
 function downloadDocumentation() {
-    fetch('/static/JSONBINBro Documentation.txt')
+    fetch('/static/JSONBINBro_Documentation.txt')
         .then(res => res.text())
         .then(content => {
             const blob = new Blob([content], { type: 'text/plain' });

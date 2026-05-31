@@ -897,6 +897,67 @@ async def get_user_chats(user_id: str, api_key: str):
         })
     return chats
 
+# Add these endpoints after the existing user endpoints
+
+@app.put("/api/user/{user_id}/profile")
+async def update_user_profile(user_id: str, api_key: str, email: Optional[str] = None, password: Optional[str] = None):
+    user = await users_collection.find_one({"_id": ObjectId(user_id), "api_key": api_key})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    update_data = {}
+    if email:
+        # Check if email is already used by another user
+        existing_email = await users_collection.find_one({"email": email, "_id": {"$ne": ObjectId(user_id)}})
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        update_data["email"] = email
+    
+    if password:
+        update_data["password"] = hash_password(password)
+    
+    if update_data:
+        await users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": update_data}
+        )
+    
+    return {"message": "Profile updated successfully"}
+
+@app.post("/api/admin/users/{user_id}/reset-password")
+async def admin_reset_password(user_id: str, admin_key: str):
+    if admin_key != os.getenv("ADMIN_KEY", "admin123"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Reset password to "password01"
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"password": hash_password("password01")}}
+    )
+    
+    return {"message": "Password reset successfully to 'password01'"}
+
+@app.put("/api/admin/users/{user_id}/toggle")
+async def toggle_user_status(user_id: str, admin_key: str):
+    if admin_key != os.getenv("ADMIN_KEY", "admin123"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_status = not user.get("is_active", True)
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"is_active": new_status}}
+    )
+    
+    return {"message": f"User {'activated' if new_status else 'deactivated'}"}
+
 # ============ EXISTING ENDPOINTS (keep for backward compatibility) ============
 
 @app.get("/api/health")

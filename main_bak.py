@@ -695,6 +695,7 @@ async def get_bin(bin_id: str, api_key: str):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid bin ID format")
 
+# Add this modified update_bin endpoint
 @app.put("/api/bins/{bin_id}")
 async def update_bin(bin_id: str, bin_update: BinCreate, api_key: str):
     try:
@@ -705,6 +706,10 @@ async def update_bin(bin_id: str, bin_update: BinCreate, api_key: str):
         user = await users_collection.find_one({"_id": ObjectId(bin_obj["user_id"]), "api_key": api_key})
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized")
+        
+        # Check request limit before processing update
+        if user.get("request_count", 0) >= user.get("request_limit", 300):
+            raise HTTPException(status_code=403, detail="Request limit exceeded. Please upgrade your plan.")
         
         update_data = {
             "data": bin_update.data,
@@ -718,11 +723,20 @@ async def update_bin(bin_id: str, bin_update: BinCreate, api_key: str):
             {"$set": update_data}
         )
         
+        # Increment request count for update operation
+        await users_collection.update_one(
+            {"_id": ObjectId(bin_obj["user_id"])},
+            {"$inc": {"request_count": 1}}
+        )
+        
         updated_bin = await bins_collection.find_one({"_id": ObjectId(bin_id)})
         return bin_helper(updated_bin)
-    except Exception:
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=400, detail="Invalid bin ID format")
 
+# Add this modified delete_bin endpoint
 @app.delete("/api/bins/{bin_id}")
 async def delete_bin(bin_id: str, api_key: str):
     try:
@@ -734,9 +748,22 @@ async def delete_bin(bin_id: str, api_key: str):
         if not user:
             raise HTTPException(status_code=401, detail="Unauthorized")
         
+        # Check request limit before processing delete
+        if user.get("request_count", 0) >= user.get("request_limit", 300):
+            raise HTTPException(status_code=403, detail="Request limit exceeded. Please upgrade your plan.")
+        
         result = await bins_collection.delete_one({"_id": ObjectId(bin_id)})
+        
+        # Increment request count for delete operation
+        await users_collection.update_one(
+            {"_id": ObjectId(bin_obj["user_id"])},
+            {"$inc": {"request_count": 1}}
+        )
+        
         return {"message": "Bin deleted successfully"}
-    except Exception:
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=400, detail="Invalid bin ID format")
 
 # ============ PAYMENT ENDPOINTS ============

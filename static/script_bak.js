@@ -1,7 +1,10 @@
+// script.js - Fixed version without recursion
 const API_BASE = '/api';
 let userId = null;
 let apiKey = null;
 let allBins = [];
+let requestCount = 0;
+let requestLimit = 300;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,8 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     apiKey = localStorage.getItem('apiKey');
     const username = localStorage.getItem('username');
     const userRole = localStorage.getItem('role');
-    const requestCount = localStorage.getItem('requestCount');
-    const requestLimit = localStorage.getItem('requestLimit');
+    requestCount = parseInt(localStorage.getItem('requestCount') || '0');
+    requestLimit = parseInt(localStorage.getItem('requestLimit') || '300');
     
     // Check if user is logged in
     if (!userId || !apiKey) {
@@ -24,13 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('userRole').textContent = userRole === 'admin' ? 'Admin' : 'User';
     document.getElementById('userRole').style.background = userRole === 'admin' ? '#dc3545' : '#28a745';
     document.getElementById('userRole').style.color = 'white';
-    document.getElementById('requestStats').innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${requestLimit}`;
-    
-    // Setup logout button
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.onclick = logout;
-    }
+    updateRequestStatsDisplay();
     
     // Load bins
     loadAllBins();
@@ -38,9 +35,98 @@ document.addEventListener('DOMContentLoaded', () => {
     setupModal();
 });
 
+// Update request stats display
+function updateRequestStatsDisplay() {
+    const percentUsed = (requestCount / requestLimit) * 100;
+    let statusClass = '';
+    if (percentUsed >= 90) {
+        statusClass = 'request-danger';
+    } else if (percentUsed >= 70) {
+        statusClass = 'request-warning';
+    }
+    const statsElement = document.getElementById('requestStats');
+    if (statsElement) {
+        statsElement.className = statusClass;
+        statsElement.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${requestLimit}`;
+    }
+    
+    // Show warning if approaching limit
+    if (percentUsed >= 90) {
+        showToastMessage(`⚠️ Warning: You've used ${requestCount} of ${requestLimit} requests. Please upgrade your plan!`, 'warning');
+    } else if (percentUsed >= 70) {
+        showToastMessage(`📊 Note: You've used ${requestCount} of ${requestLimit} requests.`, 'info');
+    }
+}
+
+// Fixed showToast function - no recursion
+function showToastMessage(message, type = 'success') {
+    // Remove any existing toasts
+    const existingToasts = document.querySelectorAll('.toast-message');
+    existingToasts.forEach(toast => toast.remove());
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast-message';
+    let bgColor = '#28a745';
+    let icon = 'fa-check-circle';
+    
+    if (type === 'error') {
+        bgColor = '#dc3545';
+        icon = 'fa-exclamation-circle';
+    } else if (type === 'warning') {
+        bgColor = '#ffc107';
+        icon = 'fa-exclamation-triangle';
+    } else if (type === 'info') {
+        bgColor = '#17a2b8';
+        icon = 'fa-info-circle';
+    }
+    
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: ${bgColor};
+        color: ${type === 'warning' ? '#333' : 'white'};
+        padding: 12px 20px;
+        border-radius: 5px;
+        z-index: 1000;
+        animation: slideInRight 0.3s ease-out;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    `;
+    toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast && toast.remove) {
+            toast.remove();
+        }
+    }, 3000);
+}
+
+// Refresh user data after API calls
+async function refreshUserData() {
+    try {
+        const response = await fetch(`${API_BASE}/user/${userId}?api_key=${apiKey}`);
+        if (response.ok) {
+            const userData = await response.json();
+            requestCount = userData.request_count;
+            requestLimit = userData.request_limit;
+            localStorage.setItem('requestCount', requestCount);
+            localStorage.setItem('requestLimit', requestLimit);
+            updateRequestStatsDisplay();
+        }
+    } catch (error) {
+        console.error('Failed to refresh user data:', error);
+    }
+}
+
 // Search function
 function searchBins() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
     const filtered = allBins.filter(bin => 
         (bin.name && bin.name.toLowerCase().includes(searchTerm)) ||
         bin.id.toLowerCase().includes(searchTerm)
@@ -59,7 +145,6 @@ async function loadAllBins() {
         const response = await fetch(`${API_BASE}/bins?user_id=${userId}&api_key=${apiKey}`);
         if (response.ok) {
             allBins = await response.json();
-            // Ensure bins is an array
             if (Array.isArray(allBins)) {
                 displayBins(allBins);
                 updateStats(allBins);
@@ -67,20 +152,24 @@ async function loadAllBins() {
                 displayBins([]);
                 updateStats([]);
             }
+            await refreshUserData();
         } else if (response.status === 401) {
             console.error('Session expired');
-            showError('Session expired. Please login again.');
+            showToastMessage('Session expired. Please login again.', 'error');
             setTimeout(() => {
                 window.location.href = '/login';
             }, 2000);
+        } else if (response.status === 403) {
+            const error = await response.json();
+            showToastMessage(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
         } else {
             const error = await response.json();
             console.error('Failed to load bins:', error);
-            showError('Failed to load bins: ' + (error.detail || 'Unknown error'));
+            showToastMessage('Failed to load bins: ' + (error.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error loading bins:', error);
-        showError('Failed to load bins. Please check your connection.');
+        showToastMessage('Failed to load bins. Please check your connection.', 'error');
     }
 }
 
@@ -159,6 +248,11 @@ function setupCreateForm() {
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        if (requestCount >= requestLimit) {
+            showToastMessage('❌ Request limit exceeded! Please upgrade your plan to create more bins.', 'error');
+            return;
+        }
+        
         const name = document.getElementById('binName').value;
         const dataText = document.getElementById('jsonData').value;
         const isPrivate = document.getElementById('isPrivate').checked;
@@ -171,30 +265,27 @@ function setupCreateForm() {
                 body: JSON.stringify({ name, data, is_private: isPrivate })
             });
             
+            if (response.status === 403) {
+                const error = await response.json();
+                showToastMessage(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+                return;
+            }
+            
             if (response.ok) {
                 const bin = await response.json();
-                showSuccess(`Bin created successfully! ID: ${bin.id}`);
+                showToastMessage(`✅ Bin created successfully! ID: ${bin.id}`, 'success');
                 document.getElementById('createForm').reset();
                 document.getElementById('jsonData').value = '{"message": "Hello World!"}';
-                loadAllBins();
-                
-                // Update request count in localStorage
-                const newRequestCount = parseInt(localStorage.getItem('requestCount') || '0') + 1;
-                localStorage.setItem('requestCount', newRequestCount);
-                const requestStatsEl = document.getElementById('requestStats');
-                if (requestStatsEl) {
-                    const requestLimit = localStorage.getItem('requestLimit') || '300';
-                    requestStatsEl.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${newRequestCount}/${requestLimit}`;
-                }
+                await loadAllBins();
             } else {
                 const error = await response.json();
-                showError(error.detail || 'Failed to create bin');
+                showToastMessage(error.detail || 'Failed to create bin', 'error');
             }
         } catch (error) {
             if (error instanceof SyntaxError) {
-                showError('Invalid JSON format. Please check your syntax.');
+                showToastMessage('Invalid JSON format. Please check your syntax.', 'error');
             } else {
-                showError(error.message || 'Failed to create bin');
+                showToastMessage(error.message || 'Failed to create bin', 'error');
             }
         }
     });
@@ -243,14 +334,19 @@ async function viewBin(id) {
                 </div>
             `);
         } else {
-            showError('Failed to load bin');
+            showToastMessage('Failed to load bin', 'error');
         }
     } catch (error) {
-        showError('Error accessing bin');
+        showToastMessage('Error accessing bin', 'error');
     }
 }
 
 async function editBin(id) {
+    if (requestCount >= requestLimit) {
+        showToastMessage('❌ Request limit exceeded! Please upgrade your plan to edit bins.', 'error');
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE}/bins/${id}?api_key=${apiKey}`);
         if (!response.ok) throw new Error('Failed to fetch bin');
@@ -274,7 +370,7 @@ async function editBin(id) {
             <button onclick="submitEdit('${id}')" class="btn btn-primary">Save Changes</button>
         `);
     } catch (error) {
-        showError('Failed to load bin for editing');
+        showToastMessage('Failed to load bin for editing', 'error');
     }
 }
 
@@ -291,35 +387,52 @@ async function submitEdit(id) {
             body: JSON.stringify({ name, data, is_private: isPrivate })
         });
         
+        if (response.status === 403) {
+            const error = await response.json();
+            showToastMessage(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+            return;
+        }
+        
         if (response.ok) {
-            showSuccess('Bin updated successfully');
+            showToastMessage('✅ Bin updated successfully!', 'success');
             closeModal();
-            loadAllBins();
+            await loadAllBins();
         } else {
             const error = await response.json();
-            showError(error.detail || 'Failed to update bin');
+            showToastMessage(error.detail || 'Failed to update bin', 'error');
         }
     } catch (error) {
-        showError('Invalid JSON format');
+        showToastMessage('Invalid JSON format', 'error');
     }
 }
 
 async function deleteBin(id) {
-    if (!confirm('Are you sure you want to delete this bin? This action cannot be undone.')) return;
+    if (!confirm('⚠️ Are you sure you want to delete this bin? This action cannot be undone and will count toward your API requests.')) return;
+    
+    if (requestCount >= requestLimit) {
+        showToastMessage('❌ Request limit exceeded! Please upgrade your plan to delete bins.', 'error');
+        return;
+    }
     
     try {
         const response = await fetch(`${API_BASE}/bins/${id}?api_key=${apiKey}`, { 
             method: 'DELETE' 
         });
         
+        if (response.status === 403) {
+            const error = await response.json();
+            showToastMessage(error.detail || 'Request limit exceeded. Please upgrade your plan.', 'error');
+            return;
+        }
+        
         if (response.ok) {
-            showSuccess('Bin deleted successfully');
-            loadAllBins();
+            showToastMessage('✅ Bin deleted successfully!', 'success');
+            await loadAllBins();
         } else {
-            showError('Failed to delete bin');
+            showToastMessage('Failed to delete bin', 'error');
         }
     } catch (error) {
-        showError('Error deleting bin');
+        showToastMessage('Error deleting bin', 'error');
     }
 }
 
@@ -353,33 +466,7 @@ function closeModal() {
 
 function copyToClipboard(text, field) {
     navigator.clipboard.writeText(text);
-    showSuccess(`${field} copied to clipboard!`);
-}
-
-function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error';
-    errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
-    const container = document.querySelector('.container');
-    if (container) {
-        container.insertBefore(errorDiv, container.firstChild);
-        setTimeout(() => errorDiv.remove(), 3000);
-    } else {
-        alert(message);
-    }
-}
-
-function showSuccess(message) {
-    const successDiv = document.createElement('div');
-    successDiv.className = 'success';
-    successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
-    const container = document.querySelector('.container');
-    if (container) {
-        container.insertBefore(successDiv, container.firstChild);
-        setTimeout(() => successDiv.remove(), 3000);
-    } else {
-        alert(message);
-    }
+    showToastMessage(`${field} copied to clipboard!`, 'success');
 }
 
 function escapeHtml(text) {
@@ -387,3 +474,12 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// Make functions available globally
+window.searchBins = searchBins;
+window.logout = logout;
+window.viewBin = viewBin;
+window.editBin = editBin;
+window.deleteBin = deleteBin;
+window.submitEdit = submitEdit;
+window.copyToClipboard = copyToClipboard;

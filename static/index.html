@@ -1,4 +1,4 @@
-<!-- index.html - Updated to show request count updates -->
+<!-- static/index.html - Updated with navigation menu and new features -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,6 +36,165 @@
                 opacity: 1;
             }
         }
+        
+        /* Navigation Menu */
+        .nav-menu {
+            background: white;
+            border-radius: 10px;
+            padding: 0 25px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .nav-links a {
+            color: #667eea;
+            text-decoration: none;
+            padding: 15px 10px;
+            display: inline-block;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .nav-links a:hover {
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: white;
+            min-width: 200px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            z-index: 100;
+            border-radius: 5px;
+            top: 45px;
+        }
+        .dropdown-content a {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            border-bottom: 1px solid #eee;
+        }
+        .dropdown-content a:hover {
+            background-color: #f8f9fa;
+        }
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+        
+        /* View Toggle Buttons */
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .view-toggle button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #e0e0e0;
+            transition: all 0.3s;
+        }
+        .view-toggle button.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* List View (Minimal) */
+        .bins-list-view {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .bins-list-view .bin-list-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .bins-list-view .bin-list-item:hover {
+            background: #f8f9fa;
+        }
+        .bin-list-info {
+            flex: 1;
+        }
+        .bin-list-name {
+            font-weight: 600;
+            color: #667eea;
+        }
+        .bin-list-id {
+            font-size: 11px;
+            color: #999;
+            font-family: monospace;
+        }
+        .bin-list-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        /* User Management Table */
+        .users-table-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .users-table th, .users-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .users-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        .status-badge {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        /* Profile Modal */
+        .profile-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .profile-form input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -46,50 +205,99 @@
             <p>Simple REST API for JSON storage - Create, Read, Update, Delete</p>
         </header>
 
+        <!-- Navigation Menu -->
+        <div class="nav-menu">
+            <div class="nav-links">
+                <a href="#" onclick="showDashboard()"><i class="fas fa-home"></i> Dashboard</a>
+                <div class="dropdown">
+                    <a href="#"><i class="fas fa-book"></i> Documentation <i class="fas fa-caret-down"></i></a>
+                    <div class="dropdown-content" id="docsContent">
+                        <!-- Documentation will be loaded dynamically -->
+                    </div>
+                </div>
+                <a href="#" onclick="showContact()"><i class="fas fa-envelope"></i> Contact</a>
+                <a href="#" onclick="showPayment()"><i class="fas fa-credit-card"></i> Payment</a>
+                <a href="#" onclick="showProfile()"><i class="fas fa-user"></i> Profile</a>
+                <a href="#" id="adminPanelLink" style="display: none;" onclick="showAdminPanel()"><i class="fas fa-users-cog"></i> Admin Panel</a>
+            </div>
+            <div>
+                <span id="requestStats" style="margin-right: 15px; padding: 5px 10px; border-radius: 20px; font-size: 14px;"></span>
+                <button onclick="logout()" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Logout</button>
+            </div>
+        </div>
+
         <!-- User Info Bar -->
         <div id="userInfoBar" style="background: white; border-radius: 10px; padding: 15px 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <i class="fas fa-user-circle"></i> Welcome, <span id="usernameDisplay">User</span>
                 <span id="userRole" style="margin-left: 10px; padding: 3px 8px; border-radius: 3px; font-size: 12px;"></span>
             </div>
-            <div>
-                <span id="requestStats" style="margin-right: 15px; padding: 5px 10px; border-radius: 20px; font-size: 14px;"></span>
-                <button onclick="logout()" style="background: #dc3545; color: white; border: none; padding: 5px 15px; border-radius: 5px; cursor: pointer;">Logout</button>
+            <div class="view-toggle" id="viewToggle">
+                <button id="gridViewBtn" class="active" onclick="setViewMode('grid')"><i class="fas fa-th"></i> Grid</button>
+                <button id="listViewBtn" onclick="setViewMode('list')"><i class="fas fa-list"></i> List</button>
             </div>
         </div>
 
-        <div class="create-section card">
-            <h2>Create New Bin</h2>
-            <form id="createForm">
-                <div class="form-group">
-                    <label>Bin Name (Optional)</label>
-                    <input type="text" id="binName" placeholder="My Awesome Bin">
-                </div>
-                <div class="form-group">
-                    <label>JSON Data</label>
-                    <textarea id="jsonData" rows="5" placeholder='{"key": "value"}' required>{"message": "Hello World!"}</textarea>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="isPrivate"> Private Bin (requires access key for read/update/delete)
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-primary">Create Bin <i class="fas fa-plus"></i></button>
-            </form>
+        <!-- Main Dashboard Content -->
+        <div id="dashboardContent">
+            <div class="create-section card">
+                <h2>Create New Bin</h2>
+                <form id="createForm">
+                    <div class="form-group">
+                        <label>Bin Name (Optional)</label>
+                        <input type="text" id="binName" placeholder="My Awesome Bin">
+                    </div>
+                    <div class="form-group">
+                        <label>JSON Data</label>
+                        <textarea id="jsonData" rows="5" placeholder='{"key": "value"}' required>{"message": "Hello World!"}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="isPrivate"> Private Bin (requires access key for read/update/delete)
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Bin <i class="fas fa-plus"></i></button>
+                </form>
+            </div>
+
+            <div class="bins-section">
+                <h2>Your Bins <i class="fas fa-list"></i></h2>
+                <div id="binsList" class="bins-grid"></div>
+            </div>
         </div>
 
-        <div class="bins-section">
-            <h2>Your Bins <i class="fas fa-list"></i></h2>
-            <div id="binsList" class="bins-grid"></div>
+        <!-- Admin Panel Content (hidden by default) -->
+        <div id="adminPanelContent" style="display: none;">
+            <div class="card">
+                <h2><i class="fas fa-users"></i> User Management</h2>
+                <div class="users-table-container">
+                    <table class="users-table" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Requests Used</th>
+                                <th>Request Limit</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <td><td colspan="7">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <!-- Modal for viewing/editing bin -->
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2 id="modalTitle">Bin Details</h2>
-            <div id="modalBody"></div>
+        <!-- Modal for viewing/editing bin -->
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 id="modalTitle">Bin Details</h2>
+                <div id="modalBody"></div>
+            </div>
         </div>
     </div>
 
@@ -113,46 +321,15 @@
         window.location.href = '/login';
     }
 
-    // Update request stats display with color coding
-    function updateRequestStatsDisplay() {
-        const percentUsed = (requestCount / requestLimit) * 100;
-        let statusClass = '';
-        if (percentUsed >= 90) {
-            statusClass = 'request-danger';
-        } else if (percentUsed >= 70) {
-            statusClass = 'request-warning';
-        }
-        const statsElement = document.getElementById('requestStats');
-        if (statsElement) {
-            statsElement.className = statusClass;
-            statsElement.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${requestLimit}`;
-        }
+    // Show/hide admin panel link based on role
+    if (userRole === 'admin') {
+        document.getElementById('adminPanelLink').style.display = 'inline-block';
     }
-
-    // Display user info
-    document.getElementById('usernameDisplay').textContent = username;
-    document.getElementById('userRole').textContent = userRole === 'admin' ? 'Admin' : 'User';
-    document.getElementById('userRole').style.background = userRole === 'admin' ? '#dc3545' : '#28a745';
-    document.getElementById('userRole').style.color = 'white';
-    updateRequestStatsDisplay();
 
     function logout() {
         localStorage.clear();
         window.location.href = '/login';
     }
-
-    // Function to show toast messages
-    window.showToast = function(message, type = 'success') {
-        const toast = document.createElement('div');
-        toast.className = 'toast-message';
-        const bgColor = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#ffc107';
-        const textColor = type === 'warning' ? '#333' : 'white';
-        toast.style.background = bgColor;
-        toast.style.color = textColor;
-        toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${message}`;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-    };
     </script>
 </body>
 </html>

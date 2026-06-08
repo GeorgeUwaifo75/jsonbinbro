@@ -129,31 +129,135 @@ function showContact() {
     `);
 }
 
-function showPayment() {
-    showModal('Payment Options', `
-        <div class="payment-info">
-            <h3>Upgrade Your Request Limit</h3>
-            <table style="width:100%; border-collapse: collapse;">
-                <tr style="background:#f0f0f0;">
-                    <th style="padding:10px;">Level</th>
-                    <th style="padding:10px;">Additional Requests</th>
-                    <th style="padding:10px;">Price (USD)</th>
-                </tr>
-                <tr><td style="padding:8px; border-bottom:1px solid #ddd;">1</td><td style="padding:8px; border-bottom:1px solid #ddd;">2,000</td><td style="padding:8px; border-bottom:1px solid #ddd;">$2.00</td></tr>
-                <tr><td style="padding:8px; border-bottom:1px solid #ddd;">2</td><td style="padding:8px; border-bottom:1px solid #ddd;">5,000</td><td style="padding:8px; border-bottom:1px solid #ddd;">$3.50</td></tr>
-                <tr><td style="padding:8px;">3</td><td style="padding:8px;">10,000</td><td style="padding:8px;">$6.00</td></tr>
-            </table>
-            <hr>
-            <p><strong>Payment Methods:</strong></p>
-            <ul>
-                <li>PayPal: uwaifo_victor@yahoo.com</li>
-                <li>TonWallet (Telegram): @GeorgeUwaifo</li>
-                <li>PayStack: Contact for integration</li>
-            </ul>
-            <p>After payment, contact support with your transaction ID to upgrade your plan.</p>
-        </div>
-    `);
-}
+// Replace the existing showPayment function in script.js
+window.showPayment = async function() {
+    // Check if user has email set
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+        showToastMessage('Please set your email in Profile before making payment', 'warning');
+        setTimeout(() => {
+            showProfile();
+        }, 2000);
+        return;
+    }
+    
+    // Load payment plans and show PayStack modal
+    if (paymentService && typeof paymentService.loadPaymentPlans === 'function') {
+        await paymentService.loadPaymentPlans();
+        paymentService.displayPaymentPlans('paymentPlansContainer');
+        paymentService.openModal();
+    } else {
+        // Fallback to the old payment display if paymentService isn't loaded
+        showModal('Payment Options', `
+            <div class="payment-info">
+                <h3>Upgrade Your Request Limit</h3>
+                <p style="color: #666; margin-bottom: 20px;">Select a plan to increase your request limit</p>
+                <div id="fallbackPaymentPlans">
+                    <div style="border: 2px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-bottom: 15px;">
+                        <h3 style="color: #667eea;">Starter</h3>
+                        <p>+2,000 requests</p>
+                        <p style="font-size: 24px; font-weight: bold;">₦3,000</p>
+                        <button class="btn btn-primary" onclick="initiateFallbackPayment(1, 'Starter', 3000, 2000)">Pay with PayStack</button>
+                    </div>
+                    <div style="border: 2px solid #e0e0e0; border-radius: 10px; padding: 20px; margin-bottom: 15px;">
+                        <h3 style="color: #667eea;">Professional</h3>
+                        <p>+5,000 requests</p>
+                        <p style="font-size: 24px; font-weight: bold;">₦5,000</p>
+                        <button class="btn btn-primary" onclick="initiateFallbackPayment(2, 'Professional', 5000, 5000)">Pay with PayStack</button>
+                    </div>
+                    <div style="border: 2px solid #e0e0e0; border-radius: 10px; padding: 20px;">
+                        <h3 style="color: #667eea;">Enterprise</h3>
+                        <p>+10,000 requests</p>
+                        <p style="font-size: 24px; font-weight: bold;">₦9,000</p>
+                        <button class="btn btn-primary" onclick="initiateFallbackPayment(3, 'Enterprise', 9000, 10000)">Pay with PayStack</button>
+                    </div>
+                </div>
+            </div>
+        `);
+    }
+};
+
+// Add fallback payment function
+window.initiateFallbackPayment = function(planLevel, planName, amount, requestsToAdd) {
+    const userEmail = localStorage.getItem('userEmail');
+    const userId = localStorage.getItem('userId');
+    const username = localStorage.getItem('username');
+    
+    if (!userEmail) {
+        showToastMessage('Please set your email in Profile first', 'error');
+        closeModal();
+        setTimeout(() => showProfile(), 1500);
+        return;
+    }
+    
+    if (!userId) {
+        showToastMessage('Please login again', 'error');
+        window.location.href = '/login';
+        return;
+    }
+    
+    const reference = `JSONBIN-${userId}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+    
+    sessionStorage.setItem('pendingPayment', JSON.stringify({
+        planLevel, planName, amount, requestsToAdd, reference
+    }));
+    
+    const handler = PaystackPop.setup({
+        key: "pk_live_2018244c913523ab0751249b240bc3e3448c3c19",
+        email: userEmail,
+        amount: amount * 100,
+        currency: 'NGN',
+        ref: reference,
+        metadata: {
+            user_id: userId,
+            username: username,
+            plan_level: planLevel,
+            plan_name: planName
+        },
+        callback: async (response) => {
+            showToastMessage('Verifying payment...', 'info');
+            try {
+                const apiResponse = await fetch('/api/confirm-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        api_key: localStorage.getItem('apiKey'),
+                        payment_data: {
+                            reference: response.reference,
+                            plan_level: planLevel,
+                            transaction_id: response.reference
+                        }
+                    })
+                });
+                
+                if (apiResponse.ok) {
+                    const data = await apiResponse.json();
+                    showToastMessage(`✅ Payment successful! Added ${requestsToAdd.toLocaleString()} requests!`, 'success');
+                    
+                    const currentLimit = parseInt(localStorage.getItem('requestLimit') || '300');
+                    localStorage.setItem('requestLimit', currentLimit + requestsToAdd);
+                    
+                    closeModal();
+                    if (window.refreshUserData) await window.refreshUserData();
+                } else {
+                    showToastMessage('Payment verification failed', 'error');
+                }
+            } catch (error) {
+                showToastMessage('Error verifying payment', 'error');
+            }
+            sessionStorage.removeItem('pendingPayment');
+        },
+        onClose: () => {
+            showToastMessage('Payment cancelled', 'error');
+            sessionStorage.removeItem('pendingPayment');
+        }
+    });
+    
+    handler.openIframe();
+    closeModal();
+};
+
 
 function showProfile() {
     const currentEmail = localStorage.getItem('userEmail') || '';
@@ -740,3 +844,4 @@ window.submitEdit = submitEdit;
 window.copyToClipboard = copyToClipboard;
 window.logout = logout;
 window.closeModal = closeModal;
+window.refreshUserData = refreshUserData;

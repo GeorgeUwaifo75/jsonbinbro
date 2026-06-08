@@ -335,5 +335,22 @@
         window.location.href = '/login';
     }
     </script>
+
+<!-- PayStack Script -->
+<script src="https://js.paystack.co/v1/inline.js"></script>
+
+<!-- Payment Modal -->
+<div id="paymentModal" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+        <span class="close" onclick="closePaymentModal()">&times;</span>
+        <h2 style="color: #667eea;"><i class="fas fa-credit-card"></i> Upgrade Your Plan</h2>
+        <p style="color: #666; margin-bottom: 20px;">Select a plan to increase your request limit</p>
+        <div id="paymentPlansContainer" style="margin-top: 10px;">
+            <!-- Payment plans will be loaded here -->
+        </div>
+        <div id="paymentStatus" style="margin-top: 20px; display: none;"></div>
+    </div>
+</div>
+
 </body>
 </html>

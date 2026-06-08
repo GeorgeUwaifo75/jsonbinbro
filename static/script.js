@@ -156,6 +156,8 @@ function showPayment() {
 }
 
 function showProfile() {
+    const currentEmail = localStorage.getItem('userEmail') || '';
+    
     showModal('Edit Profile', `
         <div class="profile-form">
             <div class="form-group">
@@ -163,8 +165,9 @@ function showProfile() {
                 <input type="text" id="profileUsername" value="${currentUsername}" readonly style="background:#f0f0f0; width:100%; padding:8px;">
             </div>
             <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="profileEmail" placeholder="Enter your email" style="width:100%; padding:8px;">
+                <label>Email (Required for payments)</label>
+                <input type="email" id="profileEmail" value="${currentEmail}" placeholder="Enter your email" style="width:100%; padding:8px;" required>
+                <small style="color: #666;">Email is needed for PayStack payment processing</small>
             </div>
             <div class="form-group">
                 <label>New Password (leave blank to keep current)</label>
@@ -184,6 +187,15 @@ async function updateProfile() {
     const password = document.getElementById('profilePassword')?.value;
     const confirmPassword = document.getElementById('profileConfirmPassword')?.value;
     
+    if (email) {
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showToastMessage('Please enter a valid email address', 'error');
+            return;
+        }
+    }
+    
     if (password && password !== confirmPassword) {
         showToastMessage('Passwords do not match', 'error');
         return;
@@ -197,6 +209,9 @@ async function updateProfile() {
         });
         
         if (response.ok) {
+            if (email) {
+                localStorage.setItem('userEmail', email);
+            }
             showToastMessage('Profile updated successfully!', 'success');
             closeModal();
             if (password) {

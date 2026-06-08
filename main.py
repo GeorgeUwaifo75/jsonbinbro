@@ -14,6 +14,11 @@ import secrets
 from dotenv import load_dotenv
 import httpx
 
+import secrets
+import hashlib
+from datetime import datetime
+
+
 load_dotenv()
 
 from database import bins_collection, users_collection, payments_collection, chats_collection
@@ -28,6 +33,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
+# Payment plans configuration
+PAYMENT_PLANS = {
+    1: {"name": "Starter", "requests": 2000, "price_ngn": 3000, "price_usd": 2.0},
+    2: {"name": "Professional", "requests": 5000, "price_ngn": 5000, "price_usd": 3.5},
+    3: {"name": "Enterprise", "requests": 10000, "price_ngn": 9000, "price_usd": 6.0}
+}
 
 # Existing Models
 class BinCreate(BaseModel):
@@ -814,6 +828,100 @@ async def confirm_payment(payment_id: str, user_id: str, transaction_id: str):
     )
     
     return {"message": "Payment confirmed", "additional_requests": additional_requests}
+
+
+@app.get("/api/payment-plans")
+async def get_payment_plans():
+    """Get available payment plans"""
+    return PAYMENT_PLANS
+
+@app.post("/api/confirm-payment")
+async def confirm_payment(user_id: str, api_key: str, payment_data: dict):
+    """Confirm payment and upgrade user's request limit"""
+    # Verify user
+    user = await users_collection.find_one({"_id": ObjectId(user_id), "api_key": api_key})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid user credentials")
+    
+    reference = payment_data.get("reference")
+    plan_level = payment_data.get("plan_level")
+    transaction_id = payment_data.get("transaction_id")
+    
+    if not reference or not plan_level:
+        raise HTTPException(status_code=400, detail="Missing payment information")
+    
+    # Check if payment was already processed
+    existing_payment = await payments_collection.find_one({"reference": reference})
+    if existing_payment and existing_payment.get("status") == "completed":
+        return {
+            "message": "Payment already processed",
+            "requests_added": existing_payment.get("requests_added", 0),
+            "new_request_limit": user.get("request_limit", 300) + existing_payment.get("requests_added", 0)
+        }
+    
+    plan = PAYMENT_PLANS.get(plan_level)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Invalid payment plan")
+    
+    additional_requests = plan["requests"]
+    
+    # Update user's request limit
+    new_limit = user.get("request_limit", 300) + additional_requests
+    
+    await users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$inc": {"request_limit": additional_requests},
+            "$set": {"payment_level": plan_level}
+        }
+    )
+    
+    # Store payment record
+    payment_record = {
+        "user_id": user_id,
+        "level": plan_level,
+        "amount": plan["price_ngn"],
+        "reference": reference,
+        "transaction_id": transaction_id,
+        "requests_added": additional_requests,
+        "status": "completed",
+        "plan_name": plan["name"],
+        "created_at": datetime.utcnow()
+    }
+    
+    await payments_collection.insert_one(payment_record)
+    
+    # Refresh user data in response
+    updated_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+    
+    return {
+        "message": "Payment confirmed successfully",
+        "requests_added": additional_requests,
+        "new_request_limit": updated_user.get("request_limit", 300),
+        "payment_level": plan_level
+    }
+
+@app.get("/api/user-payments/{user_id}")
+async def get_user_payments(user_id: str, api_key: str):
+    """Get payment history for a user"""
+    user = await users_collection.find_one({"_id": ObjectId(user_id), "api_key": api_key})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid user credentials")
+    
+    payments = []
+    async for payment in payments_collection.find({"user_id": user_id}).sort("created_at", -1):
+        payments.append({
+            "id": str(payment["_id"]),
+            "level": payment.get("level"),
+            "plan_name": payment.get("plan_name"),
+            "amount": payment.get("amount"),
+            "requests_added": payment.get("requests_added"),
+            "reference": payment.get("reference"),
+            "status": payment.get("status"),
+            "created_at": payment.get("created_at")
+        })
+    
+    return payments
 
 # ============ ADMIN ENDPOINTS ============
 

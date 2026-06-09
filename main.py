@@ -816,70 +816,96 @@ async def get_payment_plans():
     return PAYMENT_PLANS
 
 @app.post("/api/confirm-payment")
-async def confirm_payment(user_id: str, api_key: str, payment_data: dict):
+async def confirm_payment(request: Request):
     """Confirm payment and upgrade user's request limit"""
-    # Verify user
-    user = await users_collection.find_one({"_id": ObjectId(user_id), "api_key": api_key})
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid user credentials")
-    
-    reference = payment_data.get("reference")
-    plan_level = payment_data.get("plan_level")
-    transaction_id = payment_data.get("transaction_id")
-    
-    if not reference or not plan_level:
-        raise HTTPException(status_code=400, detail="Missing payment information")
-    
-    # Check if payment was already processed
-    existing_payment = await payments_collection.find_one({"reference": reference})
-    if existing_payment and existing_payment.get("status") == "completed":
+    try:
+        body = await request.json()
+        user_id = body.get("user_id")
+        api_key = body.get("api_key")
+        payment_data = body.get("payment_data", {})
+        
+        # Verify user
+        user = await users_collection.find_one({"_id": ObjectId(user_id), "api_key": api_key})
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid user credentials")
+        
+        reference = payment_data.get("reference")
+        plan_level = payment_data.get("plan_level")
+        transaction_id = payment_data.get("transaction_id")
+        
+        print(f"Processing payment confirmation: user_id={user_id}, plan_level={plan_level}, reference={reference}")
+        
+        if not reference or not plan_level:
+            raise HTTPException(status_code=400, detail="Missing payment information")
+        
+        # Check if payment was already processed
+        existing_payment = await payments_collection.find_one({"reference": reference})
+        if existing_payment and existing_payment.get("status") == "completed":
+            print(f"Payment already processed: {reference}")
+            return {
+                "message": "Payment already processed",
+                "requests_added": existing_payment.get("requests_added", 0),
+                "new_request_limit": existing_payment.get("new_request_limit", user.get("request_limit", 300))
+            }
+        
+        plan = PAYMENT_PLANS.get(plan_level)
+        if not plan:
+            raise HTTPException(status_code=400, detail="Invalid payment plan")
+        
+        additional_requests = plan["requests"]
+        
+        # Get current limit
+        current_limit = user.get("request_limit", 300)
+        new_limit = current_limit + additional_requests
+        
+        print(f"Updating user {user_id}: current_limit={current_limit}, adding={additional_requests}, new_limit={new_limit}")
+        
+        # Update user's request limit
+        update_result = await users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$inc": {"request_limit": additional_requests},
+                "$set": {"payment_level": plan_level}
+            }
+        )
+        
+        if update_result.modified_count == 0:
+            print(f"WARNING: User update had no effect! Check if user exists.")
+        
+        # Verify the update worked
+        updated_user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        print(f"After update - request_limit: {updated_user.get('request_limit')}")
+        
+        # Store payment record
+        payment_record = {
+            "user_id": user_id,
+            "level": plan_level,
+            "amount": plan["price_ngn"],
+            "reference": reference,
+            "transaction_id": transaction_id,
+            "requests_added": additional_requests,
+            "new_request_limit": new_limit,
+            "status": "completed",
+            "plan_name": plan["name"],
+            "created_at": datetime.utcnow()
+        }
+        
+        await payments_collection.insert_one(payment_record)
+        print(f"Payment record saved for reference: {reference}")
+        
         return {
-            "message": "Payment already processed",
-            "requests_added": existing_payment.get("requests_added", 0),
-            "new_request_limit": user.get("request_limit", 300) + existing_payment.get("requests_added", 0)
+            "message": "Payment confirmed successfully",
+            "requests_added": additional_requests,
+            "new_request_limit": new_limit,
+            "payment_level": plan_level,
+            "success": True
         }
-    
-    plan = PAYMENT_PLANS.get(plan_level)
-    if not plan:
-        raise HTTPException(status_code=400, detail="Invalid payment plan")
-    
-    additional_requests = plan["requests"]
-    
-    # Update user's request limit
-    new_limit = user.get("request_limit", 300) + additional_requests
-    
-    await users_collection.update_one(
-        {"_id": ObjectId(user_id)},
-        {
-            "$inc": {"request_limit": additional_requests},
-            "$set": {"payment_level": plan_level}
-        }
-    )
-    
-    # Store payment record
-    payment_record = {
-        "user_id": user_id,
-        "level": plan_level,
-        "amount": plan["price_ngn"],
-        "reference": reference,
-        "transaction_id": transaction_id,
-        "requests_added": additional_requests,
-        "status": "completed",
-        "plan_name": plan["name"],
-        "created_at": datetime.utcnow()
-    }
-    
-    await payments_collection.insert_one(payment_record)
-    
-    # Refresh user data in response
-    updated_user = await users_collection.find_one({"_id": ObjectId(user_id)})
-    
-    return {
-        "message": "Payment confirmed successfully",
-        "requests_added": additional_requests,
-        "new_request_limit": updated_user.get("request_limit", 300),
-        "payment_level": plan_level
-    }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in confirm_payment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment confirmation error: {str(e)}")
 
 @app.get("/api/user-payments/{user_id}")
 async def get_user_payments(user_id: str, api_key: str):
@@ -902,6 +928,33 @@ async def get_user_payments(user_id: str, api_key: str):
         })
     
     return payments
+
+
+@app.get("/api/debug/user-limits/{user_id}")
+async def debug_user_limits(user_id: str, api_key: str):
+    """Debug endpoint to check user limits"""
+    user = await users_collection.find_one({"_id": ObjectId(user_id), "api_key": api_key})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    payments = []
+    async for payment in payments_collection.find({"user_id": user_id}).sort("created_at", -1).limit(5):
+        payments.append({
+            "reference": payment.get("reference"),
+            "amount": payment.get("amount"),
+            "requests_added": payment.get("requests_added"),
+            "status": payment.get("status"),
+            "created_at": str(payment.get("created_at"))
+        })
+    
+    return {
+        "user_id": str(user["_id"]),
+        "username": user["username"],
+        "request_count": user.get("request_count", 0),
+        "request_limit": user.get("request_limit", 300),
+        "payment_level": user.get("payment_level", 0),
+        "recent_payments": payments
+    }
 
 @app.get("/api/debug/user/{user_id}")
 async def debug_user(user_id: str, api_key: str):

@@ -132,69 +132,75 @@ class PaymentService {
     }
 
     async verifyAndConfirmPayment(reference, planLevel, planName, amount, requestsToAdd) {
-        this.showStatus('Verifying payment...', 'info');
-        console.log('Verifying payment:', { reference, planLevel, planName, amount, requestsToAdd });
-        
-        const userId = localStorage.getItem('userId');
-        const apiKey = localStorage.getItem('apiKey');
-        
-        try {
-            const response = await fetch('/api/confirm-payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: userId,
-                    api_key: apiKey,
-                    payment_data: {
-                        reference: reference,
-                        plan_level: planLevel,
-                        transaction_id: reference
-                    }
-                })
-            });
-            
-            console.log('Confirm payment response status:', response.status);
-            const data = await response.json();
-            console.log('Confirm payment response data:', data);
-            
-            if (response.ok) {
-                this.showStatus(`✅ Payment successful! Added ${requestsToAdd.toLocaleString()} requests to your account!`, 'success');
-                
-                // Update local storage with new request limit
-                const currentLimit = parseInt(localStorage.getItem('requestLimit') || '300');
-                const newLimit = currentLimit + requestsToAdd;
-                localStorage.setItem('requestLimit', newLimit);
-                console.log(`Updated request limit from ${currentLimit} to ${newLimit}`);
-                
-                // Also update request count display
-                const requestCount = parseInt(localStorage.getItem('requestCount') || '0');
-                const statsElement = document.getElementById('requestStats');
-                if (statsElement) {
-                    statsElement.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${newLimit}`;
+    this.showStatus('Verifying payment...', 'info');
+    console.log('Verifying payment:', { reference, planLevel, planName, amount, requestsToAdd });
+    
+    const userId = localStorage.getItem('userId');
+    const apiKey = localStorage.getItem('apiKey');
+    
+    try {
+        const response = await fetch('/api/confirm-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: userId,
+                api_key: apiKey,
+                payment_data: {
+                    reference: reference,
+                    plan_level: planLevel,
+                    transaction_id: reference
                 }
-                
-                // Refresh user data display
-                if (window.refreshUserData) {
-                    await window.refreshUserData();
-                }
-                
-                // Show success message and close modal after delay
-                setTimeout(() => {
-                    this.closeModal();
-                    if (window.showToastMessage) {
-                        window.showToastMessage(`🎉 Success! Added ${requestsToAdd.toLocaleString()} requests to your account!`, 'success');
-                    }
-                }, 3000);
-                
-                sessionStorage.removeItem('pendingPayment');
-            } else {
-                this.showStatus(data.detail || 'Payment verification failed', 'error');
+            })
+        });
+        
+        console.log('Confirm payment response status:', response.status);
+        const data = await response.json();
+        console.log('Confirm payment response data:', data);
+        
+        if (response.ok && data.success !== false) {
+            // Use the returned values from server
+            const addedRequests = data.requests_added || requestsToAdd;
+            const newLimit = data.new_request_limit;
+            
+            this.showStatus(`✅ Payment successful! Added ${addedRequests.toLocaleString()} requests to your account!`, 'success');
+            
+            // Update local storage with new request limit
+            localStorage.setItem('requestLimit', newLimit);
+            console.log(`Updated request limit to ${newLimit} (added ${addedRequests} requests)`);
+            
+            // Also update request count display if function exists
+            const requestCount = parseInt(localStorage.getItem('requestCount') || '0');
+            const statsElement = document.getElementById('requestStats');
+            if (statsElement) {
+                statsElement.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${newLimit}`;
             }
-        } catch (error) {
-            console.error('Payment verification error:', error);
-            this.showStatus('Network error. Please contact support.', 'error');
+            
+            // Refresh user data display
+            if (window.refreshUserData) {
+                await window.refreshUserData();
+            }
+            
+            // Close modal after short delay
+            setTimeout(() => {
+                this.closeModal();
+                if (window.showToastMessage) {
+                    window.showToastMessage(`🎉 Success! Added ${addedRequests.toLocaleString()} requests to your account! Your new limit is ${newLimit.toLocaleString()} requests.`, 'success');
+                }
+            }, 2000);
+            
+            sessionStorage.removeItem('pendingPayment');
+        } else {
+            const errorMsg = data.detail || 'Payment verification failed';
+            this.showStatus(errorMsg, 'error');
+            console.error('Payment verification failed:', data);
         }
+    } catch (error) {
+        console.error('Payment verification error:', error);
+        this.showStatus('Network error. Please contact support with your transaction reference.', 'error');
     }
+}
+
+
 
     showStatus(message, type) {
         const statusDiv = document.getElementById('paymentStatus');

@@ -240,13 +240,14 @@ window.initiateFallbackPayment = function(planLevel, planName, amount, requestsT
                 const data = await apiResponse.json();
                 console.log('Fallback API response data:', data);
                 
-                if (apiResponse.ok) {
-                    showToastMessage(`✅ Payment successful! Added ${requestsToAdd.toLocaleString()} requests!`, 'success');
+                if (apiResponse.ok && data.success !== false) {
+                    const addedRequests = data.requests_added || requestsToAdd;
+                    const newLimit = data.new_request_limit;
                     
-                    const currentLimit = parseInt(localStorage.getItem('requestLimit') || '300');
-                    const newLimit = currentLimit + requestsToAdd;
+                    showToastMessage(`✅ Payment successful! Added ${addedRequests.toLocaleString()} requests!`, 'success');
+                    
                     localStorage.setItem('requestLimit', newLimit);
-                    console.log(`Updated limit from ${currentLimit} to ${newLimit}`);
+                    console.log(`Updated limit to ${newLimit} (added ${addedRequests} requests)`);
                     
                     // Update display
                     const requestCount = parseInt(localStorage.getItem('requestCount') || '0');
@@ -257,12 +258,21 @@ window.initiateFallbackPayment = function(planLevel, planName, amount, requestsT
                     
                     closeModal();
                     if (window.refreshUserData) await window.refreshUserData();
+                    
+                    // Show success message
+                    setTimeout(() => {
+                        if (window.showToastMessage) {
+                            window.showToastMessage(`🎉 Your request limit is now ${newLimit.toLocaleString()}!`, 'success');
+                        }
+                    }, 1000);
                 } else {
-                    showToastMessage(data.detail || 'Payment verification failed', 'error');
+                    const errorMsg = data.detail || 'Payment verification failed';
+                    showToastMessage(errorMsg, 'error');
+                    console.error('Payment verification failed:', data);
                 }
             } catch (error) {
                 console.error('Fallback payment error:', error);
-                showToastMessage('Error verifying payment', 'error');
+                showToastMessage('Error verifying payment. Please contact support.', 'error');
             }
             sessionStorage.removeItem('pendingPayment');
         },

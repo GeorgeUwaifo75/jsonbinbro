@@ -38,6 +38,13 @@ async def init_default_users():
         print("✅ Default admin user created")
     else:
         print("✅ Admin user already exists")
+        # Ensure admin has an email
+        if not admin.get("email"):
+            await users_collection.update_one(
+                {"username": "Admin01"},
+                {"$set": {"email": "admin@jsonbinbro.com"}}
+            )
+            print("✅ Added email to admin user")
     
     # Check if normal user exists
     user = await users_collection.find_one({"username": "User01"})
@@ -57,3 +64,10 @@ async def init_default_users():
         print("✅ Default normal user created")
     else:
         print("✅ Normal user already exists")
+        # Ensure normal user has an email
+        if not user.get("email"):
+            await users_collection.update_one(
+                {"username": "User01"},
+                {"$set": {"email": "user@jsonbinbro.com"}}
+            )
+            print("✅ Added email to normal user")

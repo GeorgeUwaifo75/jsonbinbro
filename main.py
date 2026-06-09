@@ -302,39 +302,40 @@ async def login_page():
             </footer>
         </div>
         <script>
-            document.getElementById('loginForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const username = document.getElementById('username').value;
-                const password = document.getElementById('password').value;
-                try {
-                    const response = await fetch('/api/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
-                    });
-                    if (response.ok) {
-                        const data = await response.json();
-                        localStorage.setItem('userId', data.user_id);
-                        localStorage.setItem('username', data.username);
-                        localStorage.setItem('role', data.role);
-                        localStorage.setItem('apiKey', data.api_key);
-                        localStorage.setItem('requestCount', data.request_count);
-                        localStorage.setItem('requestLimit', data.request_limit);
-                        window.location.href = '/dashboard';
-                    } else {
-                        const error = await response.json();
-                        document.getElementById('errorMessage').textContent = error.detail;
-                        document.getElementById('errorMessage').style.display = 'block';
-                        setTimeout(() => {
-                            document.getElementById('errorMessage').style.display = 'none';
-                        }, 3000);
-                    }
-                } catch (error) {
-                    document.getElementById('errorMessage').textContent = 'Network error. Please try again.';
-                    document.getElementById('errorMessage').style.display = 'block';
-                }
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
             });
-        </script>
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('userId', data.user_id);
+                localStorage.setItem('username', data.username);
+                localStorage.setItem('role', data.role);
+                localStorage.setItem('apiKey', data.api_key);
+                localStorage.setItem('requestCount', data.request_count);
+                localStorage.setItem('requestLimit', data.request_limit);
+                localStorage.setItem('userEmail', data.email || '');  // Add this line
+                window.location.href = '/dashboard';
+            } else {
+                const error = await response.json();
+                document.getElementById('errorMessage').textContent = error.detail;
+                document.getElementById('errorMessage').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('errorMessage').style.display = 'none';
+                }, 3000);
+            }
+        } catch (error) {
+            document.getElementById('errorMessage').textContent = 'Network error. Please try again.';
+            document.getElementById('errorMessage').style.display = 'block';
+        }
+    });
+</script>
     </body>
     </html>
     """
@@ -372,7 +373,8 @@ async def login(user: UserLogin):
         "api_key": db_user["api_key"],
         "request_count": db_user.get("request_count", 0),
         "request_limit": db_user.get("request_limit", 300),
-        "payment_level": db_user.get("payment_level", 0)
+        "payment_level": db_user.get("payment_level", 0),
+        "email": db_user.get("email", "") 
     }
 
 @app.get("/register", response_class=HTMLResponse)
@@ -641,7 +643,8 @@ async def get_user(user_id: str, api_key: str):
         "api_key": user["api_key"],
         "request_count": user.get("request_count", 0),
         "request_limit": user.get("request_limit", 300),
-        "payment_level": user.get("payment_level", 0)
+        "payment_level": user.get("payment_level", 0),
+        "email": user.get("email", "") 
     }
 
 # ============ MODIFIED BIN ENDPOINTS (with user authentication) ============
@@ -1015,7 +1018,15 @@ async def get_user_chats(user_id: str, api_key: str):
 # Add these endpoints after the existing user endpoints
 
 @app.put("/api/user/{user_id}/profile")
-async def update_user_profile(user_id: str, api_key: str, email: Optional[str] = None, password: Optional[str] = None):
+async def update_user_profile(user_id: str, api_key: str, request: Request):
+    # Parse JSON body properly
+    try:
+        body = await request.json()
+        email = body.get("email")
+        password = body.get("password")
+    except:
+        raise HTTPException(status_code=400, detail="Invalid request body")
+    
     user = await users_collection.find_one({"_id": ObjectId(user_id), "api_key": api_key})
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -1028,7 +1039,7 @@ async def update_user_profile(user_id: str, api_key: str, email: Optional[str] =
             raise HTTPException(status_code=400, detail="Email already in use")
         update_data["email"] = email
     
-    if password:
+    if password and password.strip():
         update_data["password"] = hash_password(password)
     
     if update_data:
@@ -1037,7 +1048,7 @@ async def update_user_profile(user_id: str, api_key: str, email: Optional[str] =
             {"$set": update_data}
         )
     
-    return {"message": "Profile updated successfully"}
+    return {"message": "Profile updated successfully", "email": email if email else user.get("email")}
 
 @app.post("/api/admin/users/{user_id}/reset-password")
 async def admin_reset_user_password(user_id: str, admin_key: str):

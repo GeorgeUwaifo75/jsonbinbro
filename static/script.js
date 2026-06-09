@@ -309,24 +309,33 @@ async function updateProfile() {
         const response = await fetch(`${API_BASE}/user/${userId}/profile?api_key=${apiKey}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password: password || undefined })
+            body: JSON.stringify({ 
+                email: email || undefined, 
+                password: password || undefined 
+            })
         });
         
         if (response.ok) {
+            const result = await response.json();
             if (email) {
                 localStorage.setItem('userEmail', email);
+                showToastMessage('Email updated successfully!', 'success');
             }
-            showToastMessage('Profile updated successfully!', 'success');
-            closeModal();
             if (password) {
-                showToastMessage('Please login again with your new password.', 'info');
+                showToastMessage('Password updated! Please login again.', 'info');
                 setTimeout(() => logout(), 2000);
+            } else {
+                showToastMessage('Profile updated successfully!', 'success');
+                closeModal();
             }
+            // Refresh user data to get updated email
+            await refreshUserData();
         } else {
             const error = await response.json();
             showToastMessage(error.detail || 'Failed to update profile', 'error');
         }
     } catch (error) {
+        console.error('Profile update error:', error);
         showToastMessage('Error updating profile', 'error');
     }
 }

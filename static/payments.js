@@ -11,6 +11,7 @@ class PaymentService {
             const response = await fetch('/api/payment-plans');
             if (response.ok) {
                 this.plans = await response.json();
+                console.log('Payment plans loaded:', this.plans);
                 return this.plans;
             }
         } catch (error) {
@@ -55,6 +56,9 @@ class PaymentService {
         const userId = localStorage.getItem('userId');
         const userEmail = localStorage.getItem('userEmail') || '';
         const username = localStorage.getItem('username');
+        const apiKey = localStorage.getItem('apiKey');
+        
+        console.log('Initiating payment:', { userId, userEmail, username, planLevel, planName, amount, requestsToAdd });
         
         if (!userId) {
             this.showStatus('Please login to make payment', 'error');
@@ -95,6 +99,7 @@ class PaymentService {
             metadata: {
                 user_id: userId,
                 username: username,
+                api_key: apiKey,
                 plan_level: planLevel,
                 plan_name: planName,
                 custom_fields: [
@@ -111,10 +116,12 @@ class PaymentService {
                 ]
             },
             callback: (response) => {
+                console.log('PayStack callback received:', response);
                 // Payment successful
                 this.verifyAndConfirmPayment(response.reference, planLevel, planName, amount, requestsToAdd);
             },
             onClose: () => {
+                console.log('PayStack modal closed');
                 // Payment cancelled
                 this.showStatus('Payment cancelled', 'error');
                 sessionStorage.removeItem('pendingPayment');
@@ -126,6 +133,7 @@ class PaymentService {
 
     async verifyAndConfirmPayment(reference, planLevel, planName, amount, requestsToAdd) {
         this.showStatus('Verifying payment...', 'info');
+        console.log('Verifying payment:', { reference, planLevel, planName, amount, requestsToAdd });
         
         const userId = localStorage.getItem('userId');
         const apiKey = localStorage.getItem('apiKey');
@@ -145,13 +153,25 @@ class PaymentService {
                 })
             });
             
+            console.log('Confirm payment response status:', response.status);
+            const data = await response.json();
+            console.log('Confirm payment response data:', data);
+            
             if (response.ok) {
-                const data = await response.json();
                 this.showStatus(`✅ Payment successful! Added ${requestsToAdd.toLocaleString()} requests to your account!`, 'success');
                 
                 // Update local storage with new request limit
                 const currentLimit = parseInt(localStorage.getItem('requestLimit') || '300');
-                localStorage.setItem('requestLimit', currentLimit + requestsToAdd);
+                const newLimit = currentLimit + requestsToAdd;
+                localStorage.setItem('requestLimit', newLimit);
+                console.log(`Updated request limit from ${currentLimit} to ${newLimit}`);
+                
+                // Also update request count display
+                const requestCount = parseInt(localStorage.getItem('requestCount') || '0');
+                const statsElement = document.getElementById('requestStats');
+                if (statsElement) {
+                    statsElement.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${newLimit}`;
+                }
                 
                 // Refresh user data display
                 if (window.refreshUserData) {
@@ -168,8 +188,7 @@ class PaymentService {
                 
                 sessionStorage.removeItem('pendingPayment');
             } else {
-                const error = await response.json();
-                this.showStatus(error.detail || 'Payment verification failed', 'error');
+                this.showStatus(data.detail || 'Payment verification failed', 'error');
             }
         } catch (error) {
             console.error('Payment verification error:', error);
@@ -214,6 +233,16 @@ const paymentService = new PaymentService();
 
 // Modified showPayment function for the global scope
 window.showPayment = async function() {
+    console.log('showPayment called');
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+        window.showToastMessage('Please set your email in Profile before making payment', 'warning');
+        setTimeout(() => {
+            window.showProfile();
+        }, 2000);
+        return;
+    }
+    
     await paymentService.loadPaymentPlans();
     paymentService.displayPaymentPlans('paymentPlansContainer');
     paymentService.openModal();
@@ -223,7 +252,7 @@ window.closePaymentModal = function() {
     paymentService.closeModal();
 }
 
-// Add function to update user email in profile (important for payments)
+// Add function to update user email in profile
 const originalUpdateProfile = window.updateProfile;
 window.updateProfile = async function() {
     const email = document.getElementById('profileEmail')?.value;
@@ -238,8 +267,8 @@ window.updateProfile = async function() {
 // Load user email on page load
 document.addEventListener('DOMContentLoaded', () => {
     const userEmail = localStorage.getItem('userEmail');
+    const userId = localStorage.getItem('userId');
     if (!userEmail && userId) {
-        // Prompt user to set email if not set
         setTimeout(() => {
             if (localStorage.getItem('userEmail') === null) {
                 window.showToastMessage('Please update your email in Profile to enable payments', 'warning');

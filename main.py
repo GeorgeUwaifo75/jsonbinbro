@@ -808,29 +808,6 @@ async def create_payment(payment: PaymentCreate):
     else:
         return {"payment_id": str(result.inserted_id), "status": "pending", "message": f"Please complete payment via {payment.method}"}
 
-@app.post("/api/confirm-payment")
-async def confirm_payment(payment_id: str, user_id: str, transaction_id: str):
-    payment = await payments_collection.find_one({"_id": ObjectId(payment_id)})
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    
-    level = payment["level"]
-    additional_requests = PAYMENT_RATES[level]["requests"]
-    
-    await users_collection.update_one(
-        {"_id": ObjectId(user_id)},
-        {
-            "$inc": {"request_limit": additional_requests},
-            "$set": {"payment_level": level}
-        }
-    )
-    
-    await payments_collection.update_one(
-        {"_id": ObjectId(payment_id)},
-        {"$set": {"status": "completed", "confirmed_at": datetime.utcnow(), "transaction_id": transaction_id}}
-    )
-    
-    return {"message": "Payment confirmed", "additional_requests": additional_requests}
 
 
 @app.get("/api/payment-plans")
@@ -925,6 +902,20 @@ async def get_user_payments(user_id: str, api_key: str):
         })
     
     return payments
+
+@app.get("/api/debug/user/{user_id}")
+async def debug_user(user_id: str, api_key: str):
+    user = await users_collection.find_one({"_id": ObjectId(user_id), "api_key": api_key})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    return {
+        "user_id": str(user["_id"]),
+        "username": user["username"],
+        "request_count": user.get("request_count", 0),
+        "request_limit": user.get("request_limit", 300),
+        "email": user.get("email", "")
+    }
 
 # ============ ADMIN ENDPOINTS ============
 

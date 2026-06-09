@@ -182,6 +182,9 @@ window.initiateFallbackPayment = function(planLevel, planName, amount, requestsT
     const userEmail = localStorage.getItem('userEmail');
     const userId = localStorage.getItem('userId');
     const username = localStorage.getItem('username');
+    const apiKey = localStorage.getItem('apiKey');
+    
+    console.log('Fallback payment initiated:', { userEmail, userId, username, planLevel, planName, amount, requestsToAdd });
     
     if (!userEmail) {
         showToastMessage('Please set your email in Profile first', 'error');
@@ -211,10 +214,12 @@ window.initiateFallbackPayment = function(planLevel, planName, amount, requestsT
         metadata: {
             user_id: userId,
             username: username,
+            api_key: apiKey,
             plan_level: planLevel,
             plan_name: planName
         },
         callback: async (response) => {
+            console.log('Fallback payment callback:', response);
             showToastMessage('Verifying payment...', 'info');
             try {
                 const apiResponse = await fetch('/api/confirm-payment', {
@@ -222,7 +227,7 @@ window.initiateFallbackPayment = function(planLevel, planName, amount, requestsT
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         user_id: userId,
-                        api_key: localStorage.getItem('apiKey'),
+                        api_key: apiKey,
                         payment_data: {
                             reference: response.reference,
                             plan_level: planLevel,
@@ -231,24 +236,38 @@ window.initiateFallbackPayment = function(planLevel, planName, amount, requestsT
                     })
                 });
                 
+                console.log('Fallback API response status:', apiResponse.status);
+                const data = await apiResponse.json();
+                console.log('Fallback API response data:', data);
+                
                 if (apiResponse.ok) {
-                    const data = await apiResponse.json();
                     showToastMessage(`✅ Payment successful! Added ${requestsToAdd.toLocaleString()} requests!`, 'success');
                     
                     const currentLimit = parseInt(localStorage.getItem('requestLimit') || '300');
-                    localStorage.setItem('requestLimit', currentLimit + requestsToAdd);
+                    const newLimit = currentLimit + requestsToAdd;
+                    localStorage.setItem('requestLimit', newLimit);
+                    console.log(`Updated limit from ${currentLimit} to ${newLimit}`);
+                    
+                    // Update display
+                    const requestCount = parseInt(localStorage.getItem('requestCount') || '0');
+                    const statsElement = document.getElementById('requestStats');
+                    if (statsElement) {
+                        statsElement.innerHTML = `<i class="fas fa-chart-line"></i> Requests: ${requestCount}/${newLimit}`;
+                    }
                     
                     closeModal();
                     if (window.refreshUserData) await window.refreshUserData();
                 } else {
-                    showToastMessage('Payment verification failed', 'error');
+                    showToastMessage(data.detail || 'Payment verification failed', 'error');
                 }
             } catch (error) {
+                console.error('Fallback payment error:', error);
                 showToastMessage('Error verifying payment', 'error');
             }
             sessionStorage.removeItem('pendingPayment');
         },
         onClose: () => {
+            console.log('Fallback payment cancelled');
             showToastMessage('Payment cancelled', 'error');
             sessionStorage.removeItem('pendingPayment');
         }
@@ -257,7 +276,6 @@ window.initiateFallbackPayment = function(planLevel, planName, amount, requestsT
     handler.openIframe();
     closeModal();
 };
-
 
 function showProfile() {
     const currentEmail = localStorage.getItem('userEmail') || '';

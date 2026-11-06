@@ -240,6 +240,130 @@
             max-width: 1100px; margin: 30px auto 0; padding-top: 20px;
             border-top: 1px solid #2a2a44; text-align: center; font-size: .82rem; color: #8a8aa8;
         }
+
+    /* ---------- Alternative payment (USDT / TON) ---------- */
+.alt-pay {
+    margin-top: 40px;
+    background: #fff;
+    border: 2px dashed var(--brand-1);
+    border-radius: 16px;
+    padding: 30px 28px;
+    box-shadow: 0 10px 28px rgba(102,126,234,.10);
+}
+.alt-pay-header {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 24px;
+}
+.alt-pay-icon {
+    flex: 0 0 48px; height: 48px; border-radius: 12px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+    color: #fff; font-size: 1.25rem;
+}
+.alt-pay-header h3 {
+    font-size: 1.2rem; color: var(--brand-1); margin-bottom: 6px;
+}
+.alt-pay-header p {
+    color: var(--muted); font-size: .93rem; margin: 0;
+}
+.alt-pay-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 30px;
+}
+@media (max-width: 760px) {
+    .alt-pay-grid { grid-template-columns: 1fr; }
+    .alt-pay-header { flex-direction: column; }
+}
+.alt-pay-label {
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    font-weight: 700;
+    color: #555;
+    margin-bottom: 12px;
+}
+.alt-pay-list {
+    list-style: none; padding: 0; margin: 0 0 16px;
+    display: grid; gap: 10px;
+}
+.alt-pay-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    background: #f7f7fc;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: .92rem;
+}
+.alt-pay-list li strong { color: var(--brand-1); font-size: 1rem; }
+.alt-pay-note {
+    background: #eef6ff;
+    border: 1px dashed #bcd4ff;
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: .87rem;
+    color: #2c4a80;
+}
+.alt-pay-note i { color: var(--brand-1); margin-right: 6px; }
+.wallet-box {
+    display: flex; align-items: center; gap: 10px;
+    background: #15152b;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+}
+.wallet-box code {
+    flex: 1;
+    color: #c3e88d;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8rem;
+    word-break: break-all;
+    line-height: 1.4;
+}
+.copy-btn {
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: .8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s, opacity .15s;
+}
+.copy-btn:hover { transform: translateY(-1px); opacity: .92; }
+.copy-btn.copied { background: var(--ok); }
+.wallet-hint {
+    display: flex; gap: 8px; align-items: flex-start;
+    font-size: .82rem; color: #b45309;
+    background: #fff7e6;
+    border: 1px solid #ffe0a3;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 18px;
+}
+.wallet-hint i { margin-top: 3px; }
+.alt-pay-steps {
+    display: grid; gap: 10px;
+}
+.alt-step {
+    display: flex; gap: 12px; align-items: flex-start;
+    font-size: .9rem; color: #333;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+.alt-num {
+    flex: 0 0 24px; height: 24px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+    color: #fff; font-size: .78rem; font-weight: 700;
+    display: grid; place-items: center;
+}    
     </style>
 </head>
 <body>
@@ -517,62 +641,112 @@ r = requests.get(
     </section>
 
     <!-- ================= PRICING ================= -->
-    <section id="pricing">
-        <div class="wrap">
-            <div class="section-head">
-                <h2>Simple, transparent pricing</h2>
-                <p>Pay with PayStack (NGN) or reach out for USD / PayPal options. Upgrade any time — your new limit is applied instantly.</p>
-            </div>
-            <div class="plans">
+<section id="pricing">
+    <div class="wrap">
+        <div class="section-head">
+            <h2>Simple, transparent pricing</h2>
+            <p>Pay with PayStack (NGN) or with USDT via TON Wallet. Upgrade any time — your new limit is applied as soon as payment is confirmed.</p>
+        </div>
 
-                <div class="plan">
-                    <h3>Starter</h3>
-                    <div class="price">₦3,000 <small>/ one-time</small></div>
-                    <div class="usd">≈ $2.00 USD</div>
-                    <ul>
-                        <li><i class="fas fa-check"></i> +2,000 requests added</li>
-                        <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
-                        <li><i class="fas fa-check"></i> Pay via PayStack</li>
-                        <li><i class="fas fa-check"></i> No expiry on purchased requests</li>
-                    </ul>
-                    <a href="/login" class="btn btn-ghost" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
-                </div>
+        <!-- ===== PayStack plans ===== -->
+        <div class="plans">
 
-                <div class="plan popular">
-                    <span class="badge">Most Popular</span>
-                    <h3>Professional</h3>
-                    <div class="price">₦5,000 <small>/ one-time</small></div>
-                    <div class="usd">≈ $3.50 USD</div>
-                    <ul>
-                        <li><i class="fas fa-check"></i> +5,000 requests added</li>
-                        <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
-                        <li><i class="fas fa-check"></i> Pay via PayStack</li>
-                        <li><i class="fas fa-check"></i> No expiry on purchased requests</li>
-                    </ul>
-                    <a href="/login" class="btn btn-primary" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
-                </div>
-
-                <div class="plan">
-                    <h3>Enterprise</h3>
-                    <div class="price">₦9,000 <small>/ one-time</small></div>
-                    <div class="usd">≈ $6.00 USD</div>
-                    <ul>
-                        <li><i class="fas fa-check"></i> +10,000 requests added</li>
-                        <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
-                        <li><i class="fas fa-check"></i> Pay via PayStack</li>
-                        <li><i class="fas fa-check"></i> Priority email support</li>
-                    </ul>
-                    <a href="/login" class="btn btn-ghost" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
-                </div>
+            <div class="plan">
+                <h3>Starter</h3>
+                <div class="price">₦3,000 <small>/ one-time</small></div>
+                <div class="usd">≈ $2.00 USD · or 2 USDT</div>
+                <ul>
+                    <li><i class="fas fa-check"></i> +2,000 requests added</li>
+                    <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
+                    <li><i class="fas fa-check"></i> Pay via PayStack or USDT</li>
+                    <li><i class="fas fa-check"></i> No expiry on purchased requests</li>
+                </ul>
+                <a href="/login" class="btn btn-ghost" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
             </div>
 
-            <div class="free-note">
-                <i class="fas fa-gift"></i>
-                <strong>Every new account starts free</strong> with 300 requests — no credit card required.
-                Payments are handled securely by PayStack from inside your dashboard.
+            <div class="plan popular">
+                <span class="badge">Most Popular</span>
+                <h3>Professional</h3>
+                <div class="price">₦5,000 <small>/ one-time</small></div>
+                <div class="usd">≈ $3.50 USD · or 3.5 USDT</div>
+                <ul>
+                    <li><i class="fas fa-check"></i> +5,000 requests added</li>
+                    <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
+                    <li><i class="fas fa-check"></i> Pay via PayStack or USDT</li>
+                    <li><i class="fas fa-check"></i> No expiry on purchased requests</li>
+                </ul>
+                <a href="/login" class="btn btn-primary" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
+            </div>
+
+            <div class="plan">
+                <h3>Enterprise</h3>
+                <div class="price">₦9,000 <small>/ one-time</small></div>
+                <div class="usd">≈ $6.00 USD · or 6 USDT</div>
+                <ul>
+                    <li><i class="fas fa-check"></i> +10,000 requests added</li>
+                    <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
+                    <li><i class="fas fa-check"></i> Pay via PayStack or USDT</li>
+                    <li><i class="fas fa-check"></i> Priority email support</li>
+                </ul>
+                <a href="/login" class="btn btn-ghost" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
             </div>
         </div>
-    </section>
+
+        <!-- ===== Alternative payment: USDT / TON Wallet ===== -->
+        <div class="alt-pay">
+            <div class="alt-pay-header">
+                <div class="alt-pay-icon"><i class="fas fa-coins"></i></div>
+                <div>
+                    <h3>Alternative Payment — USDT / TON Wallet</h3>
+                    <p>Prefer crypto? Pay in <strong>USDT (1 USDT = 1 USD)</strong> directly to our TON Wallet. Same plans, same request boosts — confirmed manually after you send your receipt.</p>
+                </div>
+            </div>
+
+            <div class="alt-pay-grid">
+                <!-- Left: plan mapping -->
+                <div>
+                    <div class="alt-pay-label">USDT pricing per plan</div>
+                    <ul class="alt-pay-list">
+                        <li><span>Starter — +2,000 requests</span><strong>2 USDT</strong></li>
+                        <li><span>Professional — +5,000 requests</span><strong>3.5 USDT</strong></li>
+                        <li><span>Enterprise — +10,000 requests</span><strong>6 USDT</strong></li>
+                    </ul>
+                    <div class="alt-pay-note">
+                        <i class="fas fa-info-circle"></i>
+                        Send the exact USDT amount on the <strong>TON network</strong> to the wallet below.
+                    </div>
+                </div>
+
+                <!-- Right: wallet address -->
+                <div>
+                    <div class="alt-pay-label">TON Wallet (Walt) — USDT (TRC-20 on TON)</div>
+                    <div class="wallet-box">
+                        <code id="tonWalletAddress">UQDtllRHDx1sMsPLVmxJR1P7VyUCqo_WZRgW93g2BSYXPqdB</code>
+                        <button type="button" class="copy-btn" onclick="copyTonWallet()" title="Copy wallet address">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                    <div class="wallet-hint">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span>Double-check the address before sending. Crypto transfers are irreversible.</span>
+                    </div>
+
+                    <div class="alt-pay-steps">
+                        <div class="alt-step"><span class="alt-num">1</span> Send the USDT amount for your chosen plan.</div>
+                        <div class="alt-step"><span class="alt-num">2</span> Email the transaction hash + your <strong>username</strong> to <a href="mailto:geocorpsys@gmail.com">geocorpsys@gmail.com</a>.</div>
+                        <div class="alt-step"><span class="alt-num">3</span> We credit your account within a few hours and confirm by reply.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="free-note">
+            <i class="fas fa-gift"></i>
+            <strong>Every new account starts free</strong> with 300 requests — no credit card required.
+            PayStack payments are handled securely from inside your dashboard. USDT payments are confirmed manually.
+        </div>
+    </div>
+</section>
 
     <!-- ================= FAQ ================= -->
     <section id="faq" class="soft">
@@ -652,6 +826,36 @@ r = requests.get(
             © 2026 JSONBinBro · Built with care · Payments via PayStack, PayPal, and TonWallet
         </div>
     </footer>
+
+<script>
+function copyTonWallet() {
+    const addr = "UQDtllRHDx1sMsPLVmxJR1P7VyUCqo_WZRgW93g2BSYXPqdB";
+    const btn = document.querySelector('.copy-btn');
+    const done = () => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied';
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+        }, 2200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(addr).then(done).catch(() => {
+            prompt('Copy this TON wallet address:', addr);
+        });
+    } else {
+        // Fallback for older browsers / non-secure contexts
+        const ta = document.createElement('textarea');
+        ta.value = addr;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); }
+        catch { prompt('Copy this TON wallet address:', addr); }
+        document.body.removeChild(ta);
+    }
+}
+</script>
+
 
 </body>
 </html>

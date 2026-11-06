@@ -416,11 +416,15 @@ function displayUsers(users) {
                     ${user.is_active ? 'Active' : 'Inactive'}
                 </span>
              </td>
-            <td>
+                <td>
                 <button onclick="toggleUserStatus('${user.id}')" class="btn btn-sm btn-warning">
                     ${user.is_active ? 'Deactivate' : 'Activate'}
                 </button>
                 <button onclick="resetUserPassword('${user.id}')" class="btn btn-sm btn-info">Reset Password</button>
+                <button onclick="openAdjustRequestsModal('${user.id}', ${JSON.stringify(user.username)})"
+                        class="btn btn-sm btn-primary" title="Manually adjust request limit">
+                    <i class="fas fa-sliders-h"></i> Adjust Requests
+                </button>
              </td>
         </tr>
     `).join('');
@@ -459,6 +463,140 @@ async function resetUserPassword(userIdToReset) {
         showToastMessage('Error resetting password', 'error');
     }
 }
+
+// ============ ADMIN: ADJUST REQUEST LIMIT (manual add/set/reset) ============
+
+let _adjustTargetUserId = null;
+let _adminKeyForAdjust = null;
+
+async function openAdjustRequestsModal(targetUserId, targetUsername) {
+    const adminKey = prompt('Enter admin key to continue:');
+    if (!adminKey) return;
+
+    _adjustTargetUserId = targetUserId;
+    _adminKeyForAdjust = adminKey;
+
+    try {
+        const res = await fetch(
+            `${API_BASE}/admin/users/${targetUserId}/requests?admin_key=${encodeURIComponent(adminKey)}`
+        );
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToastMessage(err.detail || 'Failed to load user request data', 'error');
+            return;
+        }
+        const data = await res.json();
+
+        document.getElementById('adjustTargetUsername').textContent = targetUsername || data.username || 'this user';
+        document.getElementById('adjustCurrentLimit').textContent = data.request_limit;
+        document.getElementById('adjustCurrentCount').textContent = data.request_count;
+
+        // Reset form state
+        document.getElementById('adjustRequestsForm').reset();
+        document.getElementById('adjustAmount').value = '';
+        document.getElementById('adjustReason').value = '';
+        document.getElementById('adjustAmountGroup').style.display = 'block';
+
+        document.getElementById('adjustRequestsModal').style.display = 'block';
+    } catch (e) {
+        console.error('openAdjustRequestsModal error:', e);
+        showToastMessage('Network error while loading user data', 'error');
+    }
+}
+
+function closeAdjustRequestsModal() {
+    const modal = document.getElementById('adjustRequestsModal');
+    if (modal) modal.style.display = 'none';
+    _adjustTargetUserId = null;
+    _adminKeyForAdjust = null;
+}
+
+async function submitAdjustRequests() {
+    if (!_adjustTargetUserId) {
+        showToastMessage('No target user selected', 'error');
+        return;
+    }
+    const adminKey = _adminKeyForAdjust;
+    if (!adminKey) {
+        showToastMessage('Admin key missing — please reopen the dialog', 'error');
+        return;
+    }
+
+    const mode = document.getElementById('adjustMode').value;
+    const amountRaw = document.getElementById('adjustAmount').value;
+    const reason = document.getElementById('adjustReason').value.trim();
+
+    let amount = null;
+    if (mode !== 'reset_count') {
+        amount = parseInt(amountRaw, 10);
+        if (isNaN(amount) || amount < 0) {
+            showToastMessage('Please enter a valid non-negative amount', 'error');
+            return;
+        }
+    }
+
+    try {
+        const res = await fetch(
+            `${API_BASE}/admin/users/${_adjustTargetUserId}/adjust-requests?admin_key=${encodeURIComponent(adminKey)}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode, amount, reason: reason || null }),
+            }
+        );
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToastMessage(data.detail || 'Failed to update request limit', 'error');
+            return;
+        }
+
+        let msg;
+        if (mode === 'add') {
+            msg = `✅ Added ${amount.toLocaleString()} requests. New limit: ${data.new_limit.toLocaleString()}`;
+        } else if (mode === 'set') {
+            msg = `✅ Limit set to ${data.new_limit.toLocaleString()} requests.`;
+        } else {
+            msg = `✅ Used count reset to 0.`;
+        }
+        showToastMessage(msg, 'success');
+
+        closeAdjustRequestsModal();
+        loadAllUsers();
+    } catch (err) {
+        console.error('adjust-requests error:', err);
+        showToastMessage('Network error while updating request limit', 'error');
+    }
+}
+
+// Wire up the modal's form + mode toggle when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    const modeSel = document.getElementById('adjustMode');
+    const amountGroup = document.getElementById('adjustAmountGroup');
+    if (modeSel && amountGroup) {
+        modeSel.addEventListener('change', () => {
+            amountGroup.style.display = modeSel.value === 'reset_count' ? 'none' : 'block';
+        });
+    }
+
+    const form = document.getElementById('adjustRequestsForm');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitAdjustRequests();
+        });
+    }
+
+    // Close modal when clicking outside
+    const modal = document.getElementById('adjustRequestsModal');
+    if (modal) {
+        window.addEventListener('click', (event) => {
+            if (event.target === modal) closeAdjustRequestsModal();
+        });
+    }
+});
+
+
 
 function updateRequestStatsDisplay() {
     const percentUsed = (requestCount / requestLimit) * 100;
@@ -874,6 +1012,10 @@ window.showProfile = showProfile;
 window.updateProfile = updateProfile;
 window.toggleUserStatus = toggleUserStatus;
 window.resetUserPassword = resetUserPassword;
+window.openAdjustRequestsModal = openAdjustRequestsModal;
+window.closeAdjustRequestsModal = closeAdjustRequestsModal;
+window.submitAdjustRequests = submitAdjustRequests;
+
 window.viewBin = viewBin;
 window.editBin = editBin;
 window.deleteBin = deleteBin;

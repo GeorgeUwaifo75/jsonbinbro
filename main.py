@@ -1122,6 +1122,126 @@ async def admin_reset_user_password(user_id: str, admin_key: str):
         raise HTTPException(status_code=400, detail=f"Error resetting password: {str(e)}")
 
 
+# ============ ADMIN: MANUAL REQUEST LIMIT ADJUSTMENT ============
+
+class AdminAdjustLimit(BaseModel):
+    mode: str                       # "add" | "set"
+    amount: int                     # how many requests to add, or the new limit
+    reason: Optional[str] = None    # optional note stored in the audit record
+
+
+@app.put("/api/admin/users/{user_id}/adjust-requests")
+async def admin_adjust_user_requests(
+    user_id: str,
+    admin_key: str,
+    payload: AdminAdjustLimit,
+):
+    """
+    Admin-only: manually add to or set a user's request limit.
+
+    - mode = "add"  →  request_limit += amount
+    - mode = "set"  →  request_limit  = amount
+    - mode = "reset_count" → request_count = 0 (useful when re-granting)
+
+    Every change is written to the `admin_audit` collection for traceability.
+    """
+    if admin_key != os.getenv("ADMIN_KEY", "admin123"):
+        raise HTTPException(status_code=401, detail="Unauthorized - Invalid admin key")
+
+    if payload.mode not in ("add", "set", "reset_count"):
+        raise HTTPException(status_code=400, detail="mode must be 'add', 'set', or 'reset_count'")
+
+    if payload.mode in ("add", "set") and payload.amount is None:
+        raise HTTPException(status_code=400, detail="amount is required for this mode")
+
+    if payload.amount is not None and payload.amount < 0:
+        raise HTTPException(status_code=400, detail="amount must be >= 0")
+
+    try:
+        user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        current_limit = user.get("request_limit", 300)
+        current_count = user.get("request_count", 0)
+
+        if payload.mode == "add":
+            new_limit = current_limit + int(payload.amount)
+            update_doc = {"$set": {"request_limit": new_limit}}
+        elif payload.mode == "set":
+            new_limit = int(payload.amount)
+            update_doc = {"$set": {"request_limit": new_limit}}
+        else:  # reset_count
+            new_limit = current_limit
+            update_doc = {"$set": {"request_count": 0}}
+
+        update_result = await users_collection.update_one(
+            {"_id": ObjectId(user_id)}, update_doc
+        )
+
+        if update_result.modified_count == 0 and payload.mode != "reset_count":
+            # Not an error — value may already be the same
+            pass
+
+        # Write an audit record (best-effort)
+        try:
+            from database import admin_audit_collection  # optional
+        except Exception:
+            admin_audit_collection = None
+
+        audit_doc = {
+            "user_id": user_id,
+            "username": user.get("username"),
+            "admin_action": "adjust_requests",
+            "mode": payload.mode,
+            "amount": payload.amount,
+            "old_limit": current_limit,
+            "new_limit": new_limit,
+            "old_count": current_count,
+            "new_count": 0 if payload.mode == "reset_count" else current_count,
+            "reason": payload.reason,
+            "created_at": datetime.utcnow(),
+        }
+        if admin_audit_collection is not None:
+            await admin_audit_collection.insert_one(audit_doc)
+
+        return {
+            "message": "Request limit updated",
+            "mode": payload.mode,
+            "old_limit": current_limit,
+            "new_limit": new_limit,
+            "request_count": 0 if payload.mode == "reset_count" else current_count,
+            "success": True,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error adjusting requests: {str(e)}")
+
+
+@app.get("/api/admin/users/{user_id}/requests")
+async def admin_get_user_requests(user_id: str, admin_key: str):
+    """Admin-only: fetch a single user's current request counters."""
+    if admin_key != os.getenv("ADMIN_KEY", "admin123"):
+        raise HTTPException(status_code=401, detail="Unauthorized - Invalid admin key")
+
+    try:
+        user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return {
+            "user_id": str(user["_id"]),
+            "username": user.get("username"),
+            "request_count": user.get("request_count", 0),
+            "request_limit": user.get("request_limit", 300),
+            "payment_level": user.get("payment_level", 0),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error fetching user requests: {str(e)}")
 # ============ EXISTING ENDPOINTS (keep for backward compatibility) ============
 
 @app.get("/api/health")

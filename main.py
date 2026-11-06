@@ -148,6 +148,13 @@ async def register(user: UserRegister):
 
 # Add these route handlers to your main.py
 
+from fastapi.responses import FileResponse
+@app.get("/", response_class=HTMLResponse)
+async def landing_page():
+    """Public landing page — welcomes new users and explains the service."""
+    return FileResponse("static/landing.html", media_type="text/html")
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page():
     html_content = """

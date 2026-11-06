@@ -299,6 +299,59 @@
                 <div id="modalBody"></div>
             </div>
         </div>
+    
+    <!-- ===== Admin: Adjust Requests Modal ===== -->
+<div id="adjustRequestsModal" class="modal">
+    <div class="modal-content" style="max-width: 520px;">
+        <span class="close" onclick="closeAdjustRequestsModal()">&times;</span>
+        <h2 style="color: #667eea;"><i class="fas fa-sliders-h"></i> Adjust Request Limit</h2>
+        <p style="color: #666; margin-bottom: 18px;">
+            Manually add requests to or set the request limit for
+            <strong id="adjustTargetUsername">this user</strong>.
+        </p>
+
+        <div style="background: #f7f7fc; border: 1px solid #e6e6ef; border-radius: 8px; padding: 12px 14px; margin-bottom: 18px; font-size: 14px;">
+            Current limit: <strong id="adjustCurrentLimit">—</strong> &nbsp;·&nbsp;
+            Used: <strong id="adjustCurrentCount">—</strong>
+        </div>
+
+        <form id="adjustRequestsForm">
+            <div class="form-group">
+                <label>Operation</label>
+                <select id="adjustMode" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;">
+                    <option value="add">Add to current limit (+N)</option>
+                    <option value="set">Set new limit (replace)</option>
+                    <option value="reset_count">Reset used count to 0</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="adjustAmountGroup">
+                <label>Amount</label>
+                <input type="number" id="adjustAmount" min="0" step="1"
+                       placeholder="e.g. 500"
+                       style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;">
+                <small style="color:#666; display:block; margin-top:4px;">
+                    For <em>Add</em>: how many requests to add. For <em>Set</em>: the new total limit.
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label>Reason (optional)</label>
+                <input type="text" id="adjustReason" placeholder="e.g. manual top-up / goodwill"
+                       style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;">
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeAdjustRequestsModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+   
+    
     </div>
 
     <!-- Footer -->

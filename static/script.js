@@ -403,31 +403,76 @@ async function loadAllUsers() {
 function displayUsers(users) {
     const tbody = document.getElementById('usersTableBody');
     if (!tbody) return;
-    
-    tbody.innerHTML = users.map(user => `
-        <tr>
-            <td>${escapeHtml(user.username)}</td>
-            <td>${escapeHtml(user.email)}</td>
-            <td>${user.role}</td>
-            <td>${user.request_count}</td>
-            <td>${user.request_limit}</td>
-            <td>
-                <span class="status-badge ${user.is_active ? 'status-active' : 'status-inactive'}">
-                    ${user.is_active ? 'Active' : 'Inactive'}
-                </span>
-             </td>
-                <td>
-                <button onclick="toggleUserStatus('${user.id}')" class="btn btn-sm btn-warning">
-                    ${user.is_active ? 'Deactivate' : 'Activate'}
-                </button>
-                <button onclick="resetUserPassword('${user.id}')" class="btn btn-sm btn-info">Reset Password</button>
-                <button onclick="openAdjustRequestsModal('${user.id}', ${JSON.stringify(user.username)})"
-                        class="btn btn-sm btn-primary" title="Manually adjust request limit">
-                    <i class="fas fa-sliders-h"></i> Adjust Requests
-                </button>
-             </td>
-        </tr>
-    `).join('');
+
+    // Clear via DOM (avoids innerHTML re-parse issues entirely)
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+    users.forEach(user => {
+        const tr = document.createElement('tr');
+
+        // Username
+        const tdUser = document.createElement('td');
+        tdUser.textContent = user.username || '';
+        tr.appendChild(tdUser);
+
+        // Email
+        const tdEmail = document.createElement('td');
+        tdEmail.textContent = user.email || '';
+        tr.appendChild(tdEmail);
+
+        // Role
+        const tdRole = document.createElement('td');
+        tdRole.textContent = user.role || 'user';
+        tr.appendChild(tdRole);
+
+        // Requests used
+        const tdCount = document.createElement('td');
+        tdCount.textContent = user.request_count ?? 0;
+        tr.appendChild(tdCount);
+
+        // Request limit
+        const tdLimit = document.createElement('td');
+        tdLimit.textContent = user.request_limit ?? 300;
+        tr.appendChild(tdLimit);
+
+        // Status
+        const tdStatus = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = 'status-badge ' + (user.is_active ? 'status-active' : 'status-inactive');
+        badge.textContent = user.is_active ? 'Active' : 'Inactive';
+        tdStatus.appendChild(badge);
+        tr.appendChild(tdStatus);
+
+        // Actions
+        const tdActions = document.createElement('td');
+
+        // Toggle
+        const btnToggle = document.createElement('button');
+        btnToggle.className = 'btn btn-sm btn-warning';
+        btnToggle.textContent = user.is_active ? 'Deactivate' : 'Activate';
+        btnToggle.addEventListener('click', () => toggleUserStatus(user.id));
+        tdActions.appendChild(btnToggle);
+        tdActions.appendChild(document.createTextNode(' '));
+
+        // Reset password
+        const btnReset = document.createElement('button');
+        btnReset.className = 'btn btn-sm btn-info';
+        btnReset.textContent = 'Reset Password';
+        btnReset.addEventListener('click', () => resetUserPassword(user.id));
+        tdActions.appendChild(btnReset);
+        tdActions.appendChild(document.createTextNode(' '));
+
+        // Adjust requests  ← the new one
+        const btnAdjust = document.createElement('button');
+        btnAdjust.className = 'btn btn-sm btn-primary';
+        btnAdjust.title = 'Manually adjust request limit';
+        btnAdjust.innerHTML = '<i class="fas fa-sliders-h"></i> Adjust Requests';
+        btnAdjust.addEventListener('click', () => openAdjustRequestsModal(user.id, user.username));
+        tdActions.appendChild(btnAdjust);
+
+        tr.appendChild(tdActions);
+        tbody.appendChild(tr);
+    });
 }
 
 async function toggleUserStatus(userIdToToggle) {

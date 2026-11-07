@@ -1042,7 +1042,7 @@ function escapeHtml(text) {
 
 function logout() {
     localStorage.clear();
-    window.location.href = '/login';
+    window.location.href = '/';
 }
 
 // Make all functions available globally

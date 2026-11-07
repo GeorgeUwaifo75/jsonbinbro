@@ -360,7 +360,7 @@ async def logout():
     return HTMLResponse(content="""
     <script>
         localStorage.clear();
-        window.location.href = '/login';
+        window.location.href = '/';
     </script>
     """)
 

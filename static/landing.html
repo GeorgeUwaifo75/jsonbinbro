@@ -364,6 +364,36 @@
     color: #fff; font-size: .78rem; font-weight: 700;
     display: grid; place-items: center;
 }    
+
+/* ---------- Bank Transfer panel (reuses .alt-pay-* styles) ---------- */
+.bank-pay {
+    margin-top: 24px;
+    background: #fff;
+    border: 2px dashed #007a5e;
+    border-radius: 16px;
+    padding: 30px 28px;
+    box-shadow: 0 10px 28px rgba(0, 122, 94, .10);
+}
+.bank-pay .alt-pay-header {
+    border-bottom-color: #d6ece7;
+}
+.bank-pay .alt-pay-header h3 {
+    color: #007a5e;
+}
+.bank-pay .copy-btn {
+    background: linear-gradient(135deg, #007a5e, #005c47);
+}
+.bank-pay .alt-num {
+    background: linear-gradient(135deg, #007a5e, #005c47);
+}
+.bank-pay .alt-pay-note {
+    background: #e8f5f1;
+    border-color: #b8e0d5;
+    color: #0a3d2e;
+}
+.bank-pay .alt-pay-note i {
+    color: #007a5e;
+}
     </style>
 </head>
 <body>
@@ -645,7 +675,7 @@ r = requests.get(
     <div class="wrap">
         <div class="section-head">
             <h2>Simple, transparent pricing</h2>
-            <p>Pay with PayStack (NGN) or with USDT via TON Wallet. Upgrade any time — your new limit is applied as soon as payment is confirmed.</p>
+            <p>Pay with PayStack (NGN), USDT via Telegram TON Wallet, or Direct Bank Transfer to GTBank. Upgrade any time — your new limit is applied as soon as payment is confirmed.</p>
         </div>
 
         <!-- ===== PayStack plans ===== -->
@@ -658,7 +688,7 @@ r = requests.get(
                 <ul>
                     <li><i class="fas fa-check"></i> +2,000 requests added</li>
                     <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
-                    <li><i class="fas fa-check"></i> Pay via PayStack or USDT</li>
+                    <li><i class="fas fa-check"></i> Pay via PayStack, USDT, or Bank Transfer</li>
                     <li><i class="fas fa-check"></i> No expiry on purchased requests</li>
                 </ul>
                 <a href="/login" class="btn btn-ghost" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
@@ -672,7 +702,7 @@ r = requests.get(
                 <ul>
                     <li><i class="fas fa-check"></i> +5,000 requests added</li>
                     <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
-                    <li><i class="fas fa-check"></i> Pay via PayStack or USDT</li>
+                    <li><i class="fas fa-check"></i> Pay via PayStack, USDT, or Bank Transfer</li>
                     <li><i class="fas fa-check"></i> No expiry on purchased requests</li>
                 </ul>
                 <a href="/login" class="btn btn-primary" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
@@ -685,7 +715,7 @@ r = requests.get(
                 <ul>
                     <li><i class="fas fa-check"></i> +10,000 requests added</li>
                     <li><i class="fas fa-check"></i> Request limit stacks on top of current</li>
-                    <li><i class="fas fa-check"></i> Pay via PayStack or USDT</li>
+                    <li><i class="fas fa-check"></i> Pay via PayStack, USDT, or Bank Transfer</li>
                     <li><i class="fas fa-check"></i> Priority email support</li>
                 </ul>
                 <a href="/login" class="btn btn-ghost" style="width:100%; justify-content:center;"><i class="fas fa-credit-card"></i> Pay with PayStack</a>
@@ -738,6 +768,66 @@ r = requests.get(
                     </div>
                 </div>
             </div>
+                    <!-- ===== Alternative payment: Direct Bank Transfer ===== -->
+        <div class="bank-pay">
+            <div class="alt-pay-header">
+                <div class="alt-pay-icon" style="background: linear-gradient(135deg, #007a5e, #005c47);">
+                    <i class="fas fa-building-columns"></i>
+                </div>
+                <div>
+                    <h3>Alternative Payment — Direct Bank Transfer</h3>
+                    <p>Pay directly to our <strong>GTBank</strong> account. Same plans, same request boosts — confirmed manually after you send your transfer receipt.</p>
+                </div>
+            </div>
+
+            <div class="alt-pay-grid">
+                <!-- Left: plan mapping in NGN -->
+                <div>
+                    <div class="alt-pay-label">Bank transfer amount per plan</div>
+                    <ul class="alt-pay-list">
+                        <li><span>Starter — +2,000 requests</span><strong>₦3,000</strong></li>
+                        <li><span>Professional — +5,000 requests</span><strong>₦5,000</strong></li>
+                        <li><span>Enterprise — +10,000 requests</span><strong>₦9,000</strong></li>
+                    </ul>
+                    <div class="alt-pay-note">
+                        <i class="fas fa-info-circle"></i>
+                        Transfer the exact NGN amount for your chosen plan and use your <strong>username</strong> as the transfer narration/reference.
+                    </div>
+                </div>
+
+                <!-- Right: bank account details -->
+                <div>
+                    <div class="alt-pay-label">GTBank — Account Details</div>
+                    <div class="wallet-box" style="background: #0a3d2e;">
+                        <div style="flex:1;">
+                            <div style="color:#c3e88d; font-size:.75rem; letter-spacing:.5px; margin-bottom:4px;">BANK</div>
+                            <div style="color:#fff; font-weight:700; margin-bottom:10px;">GTBank (Guaranty Trust Bank)</div>
+
+                            <div style="color:#c3e88d; font-size:.75rem; letter-spacing:.5px; margin-bottom:4px;">ACCOUNT NUMBER</div>
+                            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                                <code style="color:#fff; font-size:1rem; font-weight:700; letter-spacing:1px;">0152935862</code>
+                                <button type="button" class="copy-btn" onclick="copyBankAccount()" title="Copy account number">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                            </div>
+
+                            <div style="color:#c3e88d; font-size:.75rem; letter-spacing:.5px; margin-bottom:4px;">ACCOUNT NAME</div>
+                            <div style="color:#fff; font-weight:600;">George Uwaifo</div>
+                        </div>
+                    </div>
+                    <div class="wallet-hint">
+                        <i class="fas fa-triangle-exclamation"></i>
+                        <span>Double-check the account number before sending. Bank transfers are irreversible.</span>
+                    </div>
+
+                    <div class="alt-pay-steps">
+                        <div class="alt-step"><span class="alt-num">1</span> Transfer the exact NGN amount for your chosen plan to the GTBank account above.</div>
+                        <div class="alt-step"><span class="alt-num">2</span> Email your <strong>username</strong>, the <strong>plan name</strong>, and the <strong>transfer receipt/session ID</strong> to <a href="mailto:geocorpsys@gmail.com">geocorpsys@gmail.com</a>.</div>
+                        <div class="alt-step"><span class="alt-num">3</span> We credit your account within a few hours and confirm by reply.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
         </div>
 
         <div class="free-note">
@@ -765,11 +855,12 @@ r = requests.get(
                     <p>Yes. Every new account gets <strong>300 free requests</strong> on signup — enough to build a small project or evaluate the service. You can upgrade any time with PayStack to add 2,000, 5,000, or 10,000 more requests.</p>
                 </details>
                 <details>
-   		 <summary>How do I pay?</summary>
-   		 <p>You have two options:</p>
-    		<p><strong>1. PayStack (NGN):</strong> Log in, open the dashboard, click <strong>Payment</strong> in the navigation bar, choose a plan, and complete checkout. Your request 		limit is updated automatically as soon as payment is confirmed.</p>
-    		<p><strong>2. USDT via Telegram TON Wallet:</strong> Send the USDT amount for your chosen plan to our Telegram TON Wallet address shown in the <a href="#pricing">			Pricing</a> section, then email the transaction hash and your username to <a href="mailto:geocorpsys@gmail.com">geocorpsys@gmail.com</a>. We credit your account within a 		few hours.</p>
-		</details>
+                  <summary>How do I pay?</summary>
+                    <p>You have three options:</p>
+                    <p><strong>1. PayStack (NGN):</strong> Log in, open the dashboard, click <strong>Payment</strong> in the navigation bar, choose a plan, and complete checkout. Your request limit is updated automatically as soon as payment is confirmed.</p>
+                    <p><strong>2. USDT via Telegram TON Wallet:</strong> Send the USDT amount for your chosen plan to our Telegram TON Wallet address shown in the <a href="#pricing">Pricing</a> section, then email the transaction hash and your username to <a href="mailto:geocorpsys@gmail.com">geocorpsys@gmail.com</a>.</p>
+                    <p><strong>3. Direct Bank Transfer (GTBank):</strong> Transfer the NGN amount for your chosen plan to <strong>GTBank · 0152935862 · George Uwaifo</strong>, then email your username, the plan name, and the transfer receipt/session ID to <a href="mailto:geocorpsys@gmail.com">geocorpsys@gmail.com</a>. We credit your account within a few hours.</p>
+                </details>
                 <details>
                     <summary>Where do I find my API key?</summary>
                     <p>Your API key is generated automatically when you register. It's returned when you log in and stored in your browser for the dashboard. You can also retrieve it from the dashboard's user info or profile area.</p>
@@ -823,10 +914,11 @@ r = requests.get(
                 <a href="#"><i class="fab fa-telegram"></i> Telegram: @GeorgeUwaifo</a>
                 <a href="#"><i class="fas fa-credit-card"></i> PayStack: Available via API</a>
                 <a href="#pricing"><i class="fas fa-coins"></i> USDT: Telegram TON Wallet</a>
+                <a href="#pricing"><i class="fas fa-building-columns"></i> Bank Transfer: GTBank 0152935862</a>
             </div>
         </div>
         <div class="footer-bottom">
-            © 2026 JSONBinBro · Built with care · Payments via PayStack, PayPal, and TonWallet
+            © 2026 JSONBinBro · Built with care · Payments via PayStack, PayPal, TonWallet, and GTBank Transfer
         </div>
     </footer>
 
@@ -854,6 +946,32 @@ function copyTonWallet() {
         ta.select();
         try { document.execCommand('copy'); done(); }
         catch { prompt('Copy this TON wallet address:', addr); }
+        document.body.removeChild(ta);
+    }
+}
+
+function copyBankAccount() {
+    const acct = "0152935862";
+    const btn = document.querySelector('.bank-pay .copy-btn');
+    const done = () => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied';
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+        }, 2200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(acct).then(done).catch(() => {
+            prompt('Copy this GTBank account number:', acct);
+        });
+    } else {
+        const ta = document.createElement('textarea');
+        ta.value = acct;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); }
+        catch { prompt('Copy this GTBank account number:', acct); }
         document.body.removeChild(ta);
     }
 }
